@@ -4,8 +4,8 @@
 #include "main.h"
 #include "dm4310_drv.h"
 #include "pid.h"
-#include "chassisL_task.h"
 #include "INS_task.h"
+#include "control_board_profile.h"
 
 /**
  * @brief Container for all actuators driven by the body task.
@@ -16,10 +16,7 @@
  */
 typedef struct
 {
-    Joint_Motor_t neck_motor[3];
-    Joint_Motor_t left_arm_motor[4];
-    Joint_Motor_t right_arm_motor[4];
-    Joint_Motor_t loin_motor;
+    Joint_Motor_t motors[CONTROL_BOARD_MAX_BODY_JOINTS];
     uint8_t start_flag;
 } body_t;
 

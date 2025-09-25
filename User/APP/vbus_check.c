@@ -17,13 +17,10 @@
 #include "cmsis_os.h"
 #include "gpio.h"
 
-#include "chassisR_task.h"
+#include "control_board_profile.h"
+#include "dm4310_drv.h"
 #include "fdcan.h"
-#include "cmsis_os.h"
-#include "body_task.h"	
 #include "tim.h"
-extern chassis_t chassis_move;
-extern body_t robot_body;
 
 static uint16_t adc_val[2];
 static float vbus;
@@ -37,69 +34,67 @@ uint8_t loss_voltage = 0;
 
 #define vbus_threhold_call (22.6f)
 
-void VBUS_Check_task(void)
+static void VBUS_DisableJoint(RobotJointId joint)
 {
-	
-	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_val,2);
-	
-	while(1)
-	{
-		vbus = ((adc_val[1]+calibration_value)*3.3f/65535)*11.0f;
-		
-		if(6.0f<vbus&&vbus<vbus_threhold_call)
-		{// Sound the buzzer when the voltage approaches the warning threshold (22.6 V).
-			Buzzer_ON;
-		}
-		else
-		{
-			Buzzer_OFF;
-		}
-		if(6.0f<vbus&&vbus<vbus_threhold_disable)
-		{// Below 22.2 V the robot can no longer operate safely; shut everything down.
-			loss_voltage=1;
-			Power_OUT2_OFF;
-			Power_OUT1_OFF;
-			
-			// Disable all joints to avoid brown-out behaviour.
-			for(int j=0;j<7;j++)
-			{
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[7].para.id,chassis_move.joint_motor[7].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[8].para.id,chassis_move.joint_motor[8].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[9].para.id,chassis_move.joint_motor[9].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[10].para.id,chassis_move.joint_motor[10].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[11].para.id,chassis_move.joint_motor[11].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[12].para.id,chassis_move.joint_motor[12].mode);
-				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[13].para.id,chassis_move.joint_motor[13].mode);
-				osDelay(5);
-			}
-			for(int j=0;j<7;j++)
-			{
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[0].para.id,chassis_move.joint_motor[0].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[1].para.id,chassis_move.joint_motor[1].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[2].para.id,chassis_move.joint_motor[2].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[3].para.id,chassis_move.joint_motor[3].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[4].para.id,chassis_move.joint_motor[4].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[5].para.id,chassis_move.joint_motor[5].mode);
-				disable_motor_mode(&hfdcan2,chassis_move.joint_motor[6].para.id,chassis_move.joint_motor[6].mode);
-				osDelay(5);
-			}
-			for(int j=0;j<7;j++)
-			{
-				disable_motor_mode(&hfdcan3,robot_body.loin_motor.para.id,robot_body.loin_motor.mode);
-				osDelay(5);
-			}			
-		}
-		else
-		{
-			Power_OUT2_ON;
-			Power_OUT1_ON;
-						
-			loss_voltage=0;
-		}
-		
-		osDelay(100);
-	}
+        Joint_Motor_t *motor = RobotJointManager_GetMotor(joint);
+        const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(joint);
+        if(motor == NULL || hw == NULL || hw->bus == NULL)
+        {
+                return;
+        }
+        disable_motor_mode(hw->bus, motor->para.id, motor->mode);
+        osDelay(5);
 }
 
+static void VBUS_DisableProfileJoints(const ControlBoardProfile *profile)
+{
+        for(size_t i = 0; i < profile->telemetry_joint_count; ++i)
+        {
+                VBUS_DisableJoint(profile->telemetry_joints[i]);
+        }
 
+        for(size_t i = 0; i < profile->body_joint_count; ++i)
+        {
+                VBUS_DisableJoint(profile->body_joints[i].joint);
+        }
+}
+
+void VBUS_Check_task(void)
+{
+
+        HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+        HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_val,2);
+
+        const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
+
+        while(1)
+        {
+                vbus = ((adc_val[1]+calibration_value)*3.3f/65535)*11.0f;
+
+                if(6.0f<vbus&&vbus<vbus_threhold_call)
+                {// Sound the buzzer when the voltage approaches the warning threshold (22.6 V).
+                        Buzzer_ON;
+                }
+                else
+                {
+                        Buzzer_OFF;
+                }
+                if(6.0f<vbus&&vbus<vbus_threhold_disable)
+                {// Below 22.2 V the robot can no longer operate safely; shut everything down.
+                        loss_voltage=1;
+                        Power_OUT2_OFF;
+                        Power_OUT1_OFF;
+
+                        VBUS_DisableProfileJoints(profile);
+                }
+                else
+                {
+                        Power_OUT2_ON;
+                        Power_OUT1_ON;
+
+                        loss_voltage=0;
+                }
+
+                osDelay(100);
+        }
+}

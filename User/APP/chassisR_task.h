@@ -3,15 +3,14 @@
 
 #include "main.h"
 #include "dm4310_drv.h"
-
-
+#include "control_board_profile.h"
 
 
 typedef struct
 {
-  Joint_Motor_t joint_motor[14];
-	
-	uint8_t start_flag;//启动标志
+  Joint_Motor_t joint_motor[CONTROL_BOARD_MAX_LEG_JOINTS];
+
+        uint8_t start_flag;//志
 
 } chassis_t;
 
@@ -23,7 +22,3 @@ extern void mySaturate(float *in,float min,float max);
 
 
 #endif
-
-
-
-
