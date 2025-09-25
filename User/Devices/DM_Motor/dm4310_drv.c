@@ -1,7 +1,284 @@
 #include "dm4310_drv.h"
 
+#include <string.h>
+
 #include "fdcan.h"
 #include "arm_math.h"
+#include "cmsis_os.h"
+
+#define ROBOT_JOINT_FEEDBACK_OFFSET (0x10U)
+
+typedef struct
+{
+    bool registered;
+    RobotJointConfig config;
+} RobotJointEntry;
+
+static RobotJointHardwareConfig g_joint_hw_table[ROBOT_JOINT_COUNT] = {
+    [ROBOT_JOINT_WAIST_YAW] = {
+        .joint_id = ROBOT_JOINT_WAIST_YAW,
+        .model = ROBOT_MOTOR_DM6006,
+        .limb = ROBOT_LIMB_WAIST,
+        .command_id = 0x09,
+        .feedback_id = 0x19,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan3,
+        .name = "waist_yaw",
+    },
+    [ROBOT_JOINT_NECK_YAW] = {
+        .joint_id = ROBOT_JOINT_NECK_YAW,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_NECK,
+        .command_id = 0x0A,
+        .feedback_id = 0x1A,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan3,
+        .name = "neck_yaw",
+    },
+    [ROBOT_JOINT_NECK_PITCH] = {
+        .joint_id = ROBOT_JOINT_NECK_PITCH,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_NECK,
+        .command_id = 0x0B,
+        .feedback_id = 0x1B,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan3,
+        .name = "neck_pitch",
+    },
+    [ROBOT_JOINT_NECK_ROLL] = {
+        .joint_id = ROBOT_JOINT_NECK_ROLL,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_NECK,
+        .command_id = 0x0C,
+        .feedback_id = 0x1C,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan3,
+        .name = "neck_roll",
+    },
+    [ROBOT_JOINT_LEFT_ARM_SHOULDER_PITCH] = {
+        .joint_id = ROBOT_JOINT_LEFT_ARM_SHOULDER_PITCH,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_LEFT_ARM,
+        .command_id = 0x41,
+        .feedback_id = 0x51,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_shoulder_pitch",
+    },
+    [ROBOT_JOINT_LEFT_ARM_SHOULDER_ROLL] = {
+        .joint_id = ROBOT_JOINT_LEFT_ARM_SHOULDER_ROLL,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_LEFT_ARM,
+        .command_id = 0x42,
+        .feedback_id = 0x52,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_shoulder_roll",
+    },
+    [ROBOT_JOINT_LEFT_ARM_ELBOW] = {
+        .joint_id = ROBOT_JOINT_LEFT_ARM_ELBOW,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_LEFT_ARM,
+        .command_id = 0x43,
+        .feedback_id = 0x53,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_elbow",
+    },
+    [ROBOT_JOINT_LEFT_ARM_WRIST] = {
+        .joint_id = ROBOT_JOINT_LEFT_ARM_WRIST,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_LEFT_ARM,
+        .command_id = 0x44,
+        .feedback_id = 0x54,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_wrist",
+    },
+    [ROBOT_JOINT_RIGHT_ARM_SHOULDER_PITCH] = {
+        .joint_id = ROBOT_JOINT_RIGHT_ARM_SHOULDER_PITCH,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_RIGHT_ARM,
+        .command_id = 0x21,
+        .feedback_id = 0x31,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_shoulder_pitch",
+    },
+    [ROBOT_JOINT_RIGHT_ARM_SHOULDER_ROLL] = {
+        .joint_id = ROBOT_JOINT_RIGHT_ARM_SHOULDER_ROLL,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_RIGHT_ARM,
+        .command_id = 0x22,
+        .feedback_id = 0x32,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_shoulder_roll",
+    },
+    [ROBOT_JOINT_RIGHT_ARM_ELBOW] = {
+        .joint_id = ROBOT_JOINT_RIGHT_ARM_ELBOW,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_RIGHT_ARM,
+        .command_id = 0x23,
+        .feedback_id = 0x33,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_elbow",
+    },
+    [ROBOT_JOINT_RIGHT_ARM_WRIST] = {
+        .joint_id = ROBOT_JOINT_RIGHT_ARM_WRIST,
+        .model = ROBOT_MOTOR_DM4310,
+        .limb = ROBOT_LIMB_RIGHT_ARM,
+        .command_id = 0x24,
+        .feedback_id = 0x34,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_wrist",
+    },
+    [ROBOT_JOINT_LEFT_LEG_HIP_PITCH] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_HIP_PITCH,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x01,
+        .feedback_id = 0x15,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_hip_pitch",
+    },
+    [ROBOT_JOINT_LEFT_LEG_HIP_YAW] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_HIP_YAW,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x02,
+        .feedback_id = 0x14,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_hip_yaw",
+    },
+    [ROBOT_JOINT_LEFT_LEG_HIP_ROLL] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_HIP_ROLL,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x03,
+        .feedback_id = 0x13,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_hip_roll",
+    },
+    [ROBOT_JOINT_LEFT_LEG_KNEE] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_KNEE,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x04,
+        .feedback_id = 0x12,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_knee",
+    },
+    [ROBOT_JOINT_LEFT_LEG_ANKLE_PITCH] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_ANKLE_PITCH,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x05,
+        .feedback_id = 0x11,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_ankle_pitch",
+    },
+    [ROBOT_JOINT_LEFT_LEG_ANKLE_ROLL] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_ANKLE_ROLL,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x06,
+        .feedback_id = 0x16,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_ankle_roll",
+    },
+    [ROBOT_JOINT_LEFT_LEG_TOE] = {
+        .joint_id = ROBOT_JOINT_LEFT_LEG_TOE,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_LEFT_LEG,
+        .command_id = 0x07,
+        .feedback_id = 0x17,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan2,
+        .name = "left_toe",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_HIP_PITCH] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_HIP_PITCH,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x01,
+        .feedback_id = 0x11,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_hip_pitch",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_HIP_YAW] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_HIP_YAW,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x0A,
+        .feedback_id = 0x1A,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_hip_yaw",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_HIP_ROLL] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_HIP_ROLL,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x0B,
+        .feedback_id = 0x12,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_hip_roll",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_KNEE] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_KNEE,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x05,
+        .feedback_id = 0x15,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_knee",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x07,
+        .feedback_id = 0x17,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_ankle_pitch",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x08,
+        .feedback_id = 0x18,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_ankle_roll",
+    },
+    [ROBOT_JOINT_RIGHT_LEG_TOE] = {
+        .joint_id = ROBOT_JOINT_RIGHT_LEG_TOE,
+        .model = ROBOT_MOTOR_DM4340,
+        .limb = ROBOT_LIMB_RIGHT_LEG,
+        .command_id = 0x09,
+        .feedback_id = 0x19,
+        .default_mode = MIT_MODE,
+        .bus = &hfdcan1,
+        .name = "right_toe",
+    },
+};
+
+static RobotJointEntry g_joint_entries[ROBOT_JOINT_COUNT];
+static bool g_joint_initialized = false;
 
 float Hex_To_Float(uint32_t *Byte,int num)//ʮ�����Ƶ�������
 {
@@ -643,8 +920,336 @@ void dm10010l_fbdata_init(Joint_Motor_t *motor)
 void dm6248p_fbdata_init(Joint_Motor_t *motor)
 {
   motor->para.p_int_test = float_to_uint(0.0f,  P_MIN7,  P_MAX7,  16);
-	motor->para.v_int_test = float_to_uint(0.0f,  V_MIN7,  V_MAX7,  12);
-	motor->para.kp_int_test  = float_to_uint(0.0f,   KP_MIN7, KP_MAX7, 12);
-	motor->para.kd_int_test  = float_to_uint(0.0f,   KD_MIN7, KD_MAX7, 12);
-	motor->para.t_int_test = float_to_uint(0.0f, T_MIN7,  T_MAX7,  12);
+        motor->para.v_int_test = float_to_uint(0.0f,  V_MIN7,  V_MAX7,  12);
+        motor->para.kp_int_test  = float_to_uint(0.0f,   KP_MIN7, KP_MAX7, 12);
+        motor->para.kd_int_test  = float_to_uint(0.0f,   KD_MIN7, KD_MAX7, 12);
+        motor->para.t_int_test = float_to_uint(0.0f, T_MIN7,  T_MAX7,  12);
+}
+
+static void RobotJointManager_EnsureInit(void)
+{
+    if (!g_joint_initialized)
+    {
+        memset(g_joint_entries, 0, sizeof(g_joint_entries));
+        g_joint_initialized = true;
+    }
+}
+
+const RobotJointHardwareConfig *RobotJointHardware_GetConfig(RobotJointId joint_id)
+{
+    if (joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return NULL;
+    }
+    return &g_joint_hw_table[joint_id];
+}
+
+bool RobotJointHardware_SetConfig(const RobotJointHardwareConfig *config)
+{
+    if (config == NULL || config->joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return false;
+    }
+
+    RobotJointHardwareConfig *target = &g_joint_hw_table[config->joint_id];
+    *target = *config;
+    if (target->default_mode == 0U)
+    {
+        target->default_mode = MIT_MODE;
+    }
+    return true;
+}
+
+static void RobotJointManager_InitFeedbackCache(const RobotJointConfig *config)
+{
+    if (config == NULL || config->joint == NULL)
+    {
+        return;
+    }
+
+    switch (config->model)
+    {
+    case ROBOT_MOTOR_DM4310:
+        dm4310_fbdata_init(config->joint);
+        break;
+    case ROBOT_MOTOR_DM4340:
+    case ROBOT_MOTOR_DM6248P:
+        dm4340_fbdata_init(config->joint);
+        break;
+    case ROBOT_MOTOR_DM6006:
+        dm6006_fbdata_init(config->joint);
+        break;
+    case ROBOT_MOTOR_DM8006:
+        dm8006_fbdata_init(config->joint);
+        break;
+    case ROBOT_MOTOR_DM3507:
+        dm3507_fbdata_init(config->joint);
+        break;
+    case ROBOT_MOTOR_DM10010L:
+        dm10010l_fbdata_init(config->joint);
+        break;
+    default:
+        break;
+    }
+}
+
+static void RobotJointManager_HandleFeedbackForEntry(const RobotJointConfig *config, uint8_t *data, uint32_t len)
+{
+    if (config == NULL || config->joint == NULL || data == NULL)
+    {
+        return;
+    }
+
+    switch (config->model)
+    {
+    case ROBOT_MOTOR_DM4310:
+        dm4310_fbdata(config->joint, data, len);
+        break;
+    case ROBOT_MOTOR_DM4340:
+    case ROBOT_MOTOR_DM6248P:
+        dm4340_fbdata(config->joint, data, len);
+        break;
+    case ROBOT_MOTOR_DM6006:
+        dm6006_fbdata(config->joint, data, len);
+        break;
+    case ROBOT_MOTOR_DM8006:
+        dm8006_fbdata(config->joint, data, len);
+        break;
+    case ROBOT_MOTOR_DM3507:
+        dm3507_fbdata(config->joint, data, len);
+        break;
+    case ROBOT_MOTOR_DM10010L:
+        dm10010l_fbdata(config->joint, data, len);
+        break;
+    default:
+        break;
+    }
+}
+
+static void RobotJointManager_SendMitInternal(const RobotJointConfig *config, float pos, float vel, float kp, float kd, float torq)
+{
+    if (config == NULL || config->bus == NULL)
+    {
+        return;
+    }
+
+    switch (config->model)
+    {
+    case ROBOT_MOTOR_DM4310:
+        mit_ctrl(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    case ROBOT_MOTOR_DM4340:
+    case ROBOT_MOTOR_DM6248P:
+        mit_ctrl2(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    case ROBOT_MOTOR_DM6006:
+        mit_ctrl3(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    case ROBOT_MOTOR_DM8006:
+        mit_ctrl4(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    case ROBOT_MOTOR_DM3507:
+        mit_ctrl5(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    case ROBOT_MOTOR_DM10010L:
+        mit_ctrl4(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    default:
+        mit_ctrl(config->bus, config->command_id, pos, vel, kp, kd, torq);
+        break;
+    }
+}
+
+void RobotJointManager_Reset(void)
+{
+    memset(g_joint_entries, 0, sizeof(g_joint_entries));
+    g_joint_initialized = true;
+}
+
+bool RobotJointManager_Register(const RobotJointConfig *config)
+{
+    if (config == NULL || config->joint_id >= ROBOT_JOINT_COUNT || config->joint == NULL ||
+        config->bus == NULL || config->command_id == 0U)
+    {
+        return false;
+    }
+
+    RobotJointManager_EnsureInit();
+
+    RobotJointEntry *entry = &g_joint_entries[config->joint_id];
+    entry->config = *config;
+
+    if (entry->config.mode == 0U)
+    {
+        entry->config.mode = MIT_MODE;
+    }
+    if (entry->config.feedback_id == 0U)
+    {
+        entry->config.feedback_id = entry->config.command_id + ROBOT_JOINT_FEEDBACK_OFFSET;
+    }
+    if (entry->config.model == ROBOT_MOTOR_UNKNOWN)
+    {
+        const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(config->joint_id);
+        entry->config.model = hw != NULL ? hw->model : ROBOT_MOTOR_DM4310;
+    }
+    if (entry->config.name == NULL)
+    {
+        const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(config->joint_id);
+        entry->config.name = (hw != NULL && hw->name != NULL) ? hw->name : "";
+    }
+
+    joint_motor_init(entry->config.joint, entry->config.command_id, entry->config.mode);
+    RobotJointManager_InitFeedbackCache(&entry->config);
+
+    entry->registered = true;
+    return true;
+}
+
+bool RobotJointManager_RegisterJoint(RobotJointId joint_id, Joint_Motor_t *joint, uint16_t override_mode)
+{
+    const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(joint_id);
+    if (hw == NULL || hw->bus == NULL || hw->command_id == 0U)
+    {
+        return false;
+    }
+
+    RobotJointConfig config = {
+        .joint_id = joint_id,
+        .joint = joint,
+        .model = hw->model,
+        .limb = hw->limb,
+        .bus = hw->bus,
+        .command_id = hw->command_id,
+        .feedback_id = hw->feedback_id,
+        .mode = (override_mode != 0U) ? override_mode : hw->default_mode,
+        .name = hw->name,
+    };
+
+    return RobotJointManager_Register(&config);
+}
+
+Joint_Motor_t *RobotJointManager_GetMotor(RobotJointId joint_id)
+{
+    RobotJointManager_EnsureInit();
+    if (joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return NULL;
+    }
+    RobotJointEntry *entry = &g_joint_entries[joint_id];
+    if (!entry->registered)
+    {
+        return NULL;
+    }
+    return entry->config.joint;
+}
+
+bool RobotJointManager_SendMIT(RobotJointId joint_id, float pos, float vel, float kp, float kd, float torq)
+{
+    RobotJointManager_EnsureInit();
+    if (joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return false;
+    }
+
+    RobotJointEntry *entry = &g_joint_entries[joint_id];
+    if (!entry->registered)
+    {
+        return false;
+    }
+
+    RobotJointManager_SendMitInternal(&entry->config, pos, vel, kp, kd, torq);
+    return true;
+}
+
+bool RobotJointManager_SendMITUsingCache(RobotJointId joint_id)
+{
+    RobotJointManager_EnsureInit();
+    if (joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return false;
+    }
+
+    RobotJointEntry *entry = &g_joint_entries[joint_id];
+    if (!entry->registered || entry->config.joint == NULL)
+    {
+        return false;
+    }
+
+    mit_ctrl_test(entry->config.bus, entry->config.command_id, entry->config.joint);
+    return true;
+}
+
+bool RobotJointManager_SaveZero(RobotJointId joint_id)
+{
+    RobotJointManager_EnsureInit();
+    if (joint_id >= ROBOT_JOINT_COUNT)
+    {
+        return false;
+    }
+
+    RobotJointEntry *entry = &g_joint_entries[joint_id];
+    if (!entry->registered)
+    {
+        return false;
+    }
+
+    save_motor_zero(entry->config.bus, entry->config.command_id, entry->config.mode);
+    return true;
+}
+
+void RobotJointManager_EnableLimb(RobotLimb limb, uint8_t repeat, uint16_t delay_ms)
+{
+    RobotJointManager_EnsureInit();
+    if (limb >= ROBOT_LIMB_COUNT)
+    {
+        return;
+    }
+
+    if (repeat == 0U)
+    {
+        repeat = 1U;
+    }
+
+    for (uint8_t r = 0; r < repeat; r++)
+    {
+        for (uint32_t i = 0; i < ROBOT_JOINT_COUNT; i++)
+        {
+            RobotJointEntry *entry = &g_joint_entries[i];
+            if (entry->registered && entry->config.limb == limb)
+            {
+                enable_motor_mode(entry->config.bus, entry->config.command_id, entry->config.mode);
+            }
+        }
+        if (delay_ms > 0U)
+        {
+            osDelay(delay_ms);
+        }
+    }
+}
+
+void RobotJointManager_EnableAll(uint8_t repeat, uint16_t delay_ms)
+{
+    for (RobotLimb limb = 0; limb < ROBOT_LIMB_COUNT; limb++)
+    {
+        RobotJointManager_EnableLimb(limb, repeat, delay_ms);
+    }
+}
+
+void RobotJointManager_HandleFeedback(hcan_t *bus, uint16_t feedback_id, uint8_t *data, uint32_t len)
+{
+    RobotJointManager_EnsureInit();
+    if (bus == NULL)
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < ROBOT_JOINT_COUNT; i++)
+    {
+        RobotJointEntry *entry = &g_joint_entries[i];
+        if (entry->registered && entry->config.bus == bus && entry->config.feedback_id == feedback_id)
+        {
+            RobotJointManager_HandleFeedbackForEntry(&entry->config, data, len);
+            break;
+        }
+    }
 }

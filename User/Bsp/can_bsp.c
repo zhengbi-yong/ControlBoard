@@ -155,69 +155,36 @@ uint8_t canx_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, ui
 
 extern chassis_t chassis_move;
 extern body_t robot_body;
-int64_t mybuff[7]={0};
-int64_t mybuff3[9]={0};
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
-{ 
+{
   if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET)
   {
     if(hfdcan->Instance == FDCAN1)
     {
-      /* Retrieve Rx messages from RX FIFO0 */
-			memset(g_Can1RxData, 0, sizeof(g_Can1RxData));	//����ǰ���������	
+      memset(g_Can1RxData, 0, sizeof(g_Can1RxData));
       HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader1, g_Can1RxData);
-			
-			switch(RxHeader1.Identifier)
-			{//����
-				case 0x19 :dm4340_fbdata(&chassis_move.joint_motor[13], g_Can1RxData,RxHeader1.DataLength);mybuff[0]++;break;
-				case 0x18 :dm4340_fbdata(&chassis_move.joint_motor[12], g_Can1RxData,RxHeader1.DataLength);mybuff[1]++;break;
-        		case 0x17 :dm4340_fbdata(&chassis_move.joint_motor[11], g_Can1RxData,RxHeader1.DataLength);mybuff[2]++;break;
-        		case 0x15 :dm4340_fbdata(&chassis_move.joint_motor[10], g_Can1RxData,RxHeader1.DataLength);mybuff[3]++;break;	         	
-				case 0x1A :dm4340_fbdata(&chassis_move.joint_motor[9], g_Can1RxData,RxHeader1.DataLength);mybuff[4]++;break;
-        		case 0x12 :dm4340_fbdata(&chassis_move.joint_motor[8], g_Can1RxData,RxHeader1.DataLength);mybuff[5]++;break;
-				case 0x11 :dm4340_fbdata(&chassis_move.joint_motor[7], g_Can1RxData,RxHeader1.DataLength);mybuff[6]++;break;
-				
-				default: break;
-			}			
-	  }
-		if(hfdcan->Instance == FDCAN3)
+      RobotJointManager_HandleFeedback(hfdcan, RxHeader1.Identifier, g_Can1RxData, RxHeader1.DataLength);
+    }
+    if(hfdcan->Instance == FDCAN3)
     {
-      /* Retrieve Rx messages from RX FIFO0 */
-			memset(g_Can3RxData, 0, sizeof(g_Can3RxData));	//����ǰ���������	
+      memset(g_Can3RxData, 0, sizeof(g_Can3RxData));
       HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader3, g_Can3RxData);
-			
-			switch(RxHeader3.Identifier)
-			{ 		
-				case 0x19 :dm6006_fbdata(&robot_body.loin_motor, g_Can3RxData,RxHeader3.DataLength);mybuff3[8]++;break;	
-				
-				default: break;
-			}			
-	  }
+      RobotJointManager_HandleFeedback(hfdcan, RxHeader3.Identifier, g_Can3RxData, RxHeader3.DataLength);
+    }
   }
 }
-int64_t mybuff2[5]={0};
 void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 {
   if((RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) != RESET)
   {
     if(hfdcan->Instance == FDCAN2)
     {
-      /* Retrieve Rx messages from RX FIFO0 */
-			memset(g_Can2RxData, 0, sizeof(g_Can2RxData));
+      memset(g_Can2RxData, 0, sizeof(g_Can2RxData));
       HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &RxHeader2, g_Can2RxData);
-			switch(RxHeader2.Identifier)
-			{//����
-        case 0x15 :dm4340_fbdata(&chassis_move.joint_motor[0], g_Can2RxData,RxHeader2.DataLength);mybuff2[0]++;break;
-        case 0x14 :dm4340_fbdata(&chassis_move.joint_motor[1], g_Can2RxData,RxHeader2.DataLength);mybuff2[1]++;break;	         	
-				case 0x13 :dm4340_fbdata(&chassis_move.joint_motor[2], g_Can2RxData,RxHeader2.DataLength);mybuff2[2]++;break;
-        case 0x12 :dm4340_fbdata(&chassis_move.joint_motor[3], g_Can2RxData,RxHeader2.DataLength);mybuff2[3]++;break;
-				case 0x11 :dm4340_fbdata(&chassis_move.joint_motor[4], g_Can2RxData,RxHeader2.DataLength);mybuff2[4]++;break;
-				default: break;
-			}	
+      RobotJointManager_HandleFeedback(hfdcan, RxHeader2.Identifier, g_Can2RxData, RxHeader2.DataLength);
     }
   }
 }
-
 void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud)
 {
 	uint32_t nom_brp=0, nom_seg1=0, nom_seg2=0, nom_sjw=0;

@@ -16,6 +16,7 @@
 #include "chassisR_task.h"
 #include "fdcan.h"
 #include "cmsis_os.h"
+#include <stddef.h>
 													
 chassis_t chassis_move;
 
@@ -27,109 +28,63 @@ float my_kp2=0.0f;
 float my_pos2=0.0f;
 float my_tor2=0.0f;
 int a=0;
+
+static const RobotJointId right_leg_joint_order[] = {
+    ROBOT_JOINT_RIGHT_LEG_HIP_PITCH,
+    ROBOT_JOINT_RIGHT_LEG_HIP_ROLL,
+    ROBOT_JOINT_RIGHT_LEG_HIP_YAW,
+    ROBOT_JOINT_RIGHT_LEG_KNEE,
+    ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH,
+    ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL,
+    ROBOT_JOINT_RIGHT_LEG_TOE,
+};
+
+#define RIGHT_LEG_JOINT_COUNT (sizeof(right_leg_joint_order) / sizeof(right_leg_joint_order[0]))
 void ChassisR_task(void)
 {
 	chassis_move.start_flag=1;
 	osDelay(2000);
     ChassisR_init(&chassis_move);
-
-	dm6248p_fbdata_init(&chassis_move.joint_motor[7]);
-  dm6248p_fbdata_init(&chassis_move.joint_motor[8]);
-	dm6248p_fbdata_init(&chassis_move.joint_motor[9]);
-	dm4340_fbdata_init(&chassis_move.joint_motor[10]);
-	dm4340_fbdata_init(&chassis_move.joint_motor[11]);
-	dm4340_fbdata_init(&chassis_move.joint_motor[12]);
-	dm4340_fbdata_init(&chassis_move.joint_motor[13]);
   chassis_move.start_flag=1;
-	while(1)
-	{	
-		if(chassis_move.start_flag==1)	
-		{
-			mit_ctrl_test(&hfdcan1,0x01,&chassis_move.joint_motor[7]);
-			mit_ctrl_test(&hfdcan1,0x0B,&chassis_move.joint_motor[8]);
-			mit_ctrl_test(&hfdcan1,0x0A,&chassis_move.joint_motor[9]);
-			mit_ctrl_test(&hfdcan1,0x05,&chassis_move.joint_motor[10]);
-			mit_ctrl_test(&hfdcan1,0x07,&chassis_move.joint_motor[11]);
-			mit_ctrl_test(&hfdcan1,0x08,&chassis_move.joint_motor[12]);
-			mit_ctrl_test(&hfdcan1,0x09,&chassis_move.joint_motor[13]);
-		}
-		else
-		{ //void mit_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel,float kp, float kd, float torq)
-		  mit_ctrl2(&hfdcan1,0x01, 0.0f, 0.0f,0.0f, 0.0f,my_tor2);//right_pitch
-		  mit_ctrl2(&hfdcan1,0x0B, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_roll
-		  mit_ctrl2(&hfdcan1,0x0A, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_yaw
-		  mit_ctrl2(&hfdcan1,0x05, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_calf
-		  mit_ctrl2(&hfdcan1,0x07, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot		
-      	  mit_ctrl2(&hfdcan1,0x08, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot	
-      	  mit_ctrl2(&hfdcan1,0x09, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot				
-		}
-		if(a==1)
-		{
-			// save_motor_zero(&hfdcan1,0x05, MIT_MODE);
-			// osDelay(CHASSR_TIME);
-			save_motor_zero(&hfdcan1,0x04, MIT_MODE);
-			// osDelay(CHASSR_TIME);
-			// save_motor_zero(&hfdcan1,0x03, MIT_MODE);
-			// osDelay(CHASSR_TIME);
-			// save_motor_zero(&hfdcan1,0x02, MIT_MODE);
-			// osDelay(CHASSR_TIME);
-			// save_motor_zero(&hfdcan1,0x01, MIT_MODE);
-			osDelay(CHASSR_TIME);
-		}
-		osDelay(CHASSR_TIME);
-	}
+        while(1)
+        {
+                if(chassis_move.start_flag==1)
+                {
+                        for(size_t i = 0; i < RIGHT_LEG_JOINT_COUNT; ++i)
+                        {
+                                RobotJointManager_SendMITUsingCache(right_leg_joint_order[i]);
+                        }
+                }
+                else
+                { //void mit_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel,float kp, float kd, float torq)
+                  RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_HIP_PITCH, 0.0f, 0.0f,0.0f, 0.0f,my_tor2);//right_pitch
+                  RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_HIP_ROLL, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_roll
+                  RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_HIP_YAW, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_yaw
+                  RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_KNEE, 0.0f, 0.0f,0.0f, 0.0f,0.0f);//right_calf
+                  RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot
+          RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot
+          RobotJointManager_SendMIT(ROBOT_JOINT_RIGHT_LEG_TOE, my_pos2, my_vel2,my_kp2, my_kd2,0.0f);//right_foot
+                }
+                if(a==1)
+                {
+                        RobotJointManager_SaveZero(ROBOT_JOINT_RIGHT_LEG_KNEE);
+                        osDelay(CHASSR_TIME);
+                }
+                osDelay(CHASSR_TIME);
+        }
 }
 
 void ChassisR_init(chassis_t *chassis)
 {
-	joint_motor_init(&chassis->joint_motor[7],1,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[8],0xB,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[9],0xA,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[10],5,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[11],7,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[12],8,MIT_MODE);
-	joint_motor_init(&chassis->joint_motor[13],9,MIT_MODE);
-	for(int j=0;j<10;j++)
-	{
-	  enable_motor_mode(&hfdcan1,chassis->joint_motor[7].para.id,chassis->joint_motor[7].mode);
-	  osDelay(100);
-	}	
-	for(int j=0;j<10;j++)
-	{
-	  enable_motor_mode(&hfdcan1,chassis->joint_motor[8].para.id,chassis->joint_motor[8].mode);
-	  osDelay(100);
-	}
-	for(int j=0;j<10;j++)
-	{
-    enable_motor_mode(&hfdcan1,chassis->joint_motor[9].para.id,chassis->joint_motor[9].mode);
-	  osDelay(100);
-	}
-	
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_HIP_PITCH, &chassis->joint_motor[7], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_HIP_ROLL, &chassis->joint_motor[8], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_HIP_YAW, &chassis->joint_motor[9], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_KNEE, &chassis->joint_motor[10], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH, &chassis->joint_motor[11], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL, &chassis->joint_motor[12], MIT_MODE);
+        RobotJointManager_RegisterJoint(ROBOT_JOINT_RIGHT_LEG_TOE, &chassis->joint_motor[13], MIT_MODE);
 
-
-
-
-	for(int j=0;j<10;j++)
-	{
-    enable_motor_mode(&hfdcan1,chassis->joint_motor[10].para.id,chassis->joint_motor[10].mode);
-	  osDelay(100);
-	}
-	for(int j=0;j<10;j++)
-	{
-    enable_motor_mode(&hfdcan1,chassis->joint_motor[11].para.id,chassis->joint_motor[11].mode);
-	  osDelay(100);
-	}
-	for(int j=0;j<10;j++)
-	{
-    enable_motor_mode(&hfdcan1,chassis->joint_motor[12].para.id,chassis->joint_motor[12].mode);
-	  osDelay(100);
-	}
-	for(int j=0;j<10;j++)
-	{
-    enable_motor_mode(&hfdcan1,chassis->joint_motor[13].para.id,chassis->joint_motor[13].mode);
-	  osDelay(100);
-	}
-	
+        RobotJointManager_EnableLimb(ROBOT_LIMB_RIGHT_LEG, 10, 100);
 }
 
 
