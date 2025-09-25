@@ -22,7 +22,8 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-#include "chassisR_task.h"
+#include "control_board_profile.h"
+#include "dm4310_drv.h"
 #include "bsp_usart1.h"
 /* USER CODE END INCLUDE */
 
@@ -32,7 +33,6 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-extern chassis_t chassis_move;
 extern rev_data_t rev_data;
 /* USER CODE END PV */
 
@@ -127,6 +127,55 @@ extern USBD_HandleTypeDef hUsbDeviceHS;
 static int8_t CDC_Init_HS(void);
 static int8_t CDC_DeInit_HS(void);
 static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length);
+static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx)
+{
+  const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
+  if (index >= profile->telemetry_joint_count)
+  {
+    return;
+  }
+
+  const RobotJointId joint = profile->telemetry_joints[index];
+  Joint_Motor_t *motor = RobotJointManager_GetMotor(joint);
+  if (motor == NULL)
+  {
+    return;
+  }
+
+  const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(joint);
+  if (hw == NULL)
+  {
+    return;
+  }
+
+  switch (hw->model)
+  {
+    case ROBOT_MOTOR_DM4310:
+      dm4310_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM4340:
+      dm4340_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM6006:
+      dm6006_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM8006:
+      dm8006_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM3507:
+      dm3507_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM10010L:
+      dm10010l_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM6248P:
+      dm6248p_fbdata_test(motor, rx);
+      break;
+    default:
+      break;
+  }
+}
+
 static int8_t CDC_Receive_HS(uint8_t* pbuf, uint32_t *Len);
 static int8_t CDC_TransmitCplt_HS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 
@@ -263,6 +312,55 @@ static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   * @param  Len: Number of data received (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAILL
   */
+static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx)
+{
+  const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
+  if (index >= profile->telemetry_joint_count)
+  {
+    return;
+  }
+
+  const RobotJointId joint = profile->telemetry_joints[index];
+  Joint_Motor_t *motor = RobotJointManager_GetMotor(joint);
+  if (motor == NULL)
+  {
+    return;
+  }
+
+  const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(joint);
+  if (hw == NULL)
+  {
+    return;
+  }
+
+  switch (hw->model)
+  {
+    case ROBOT_MOTOR_DM4310:
+      dm4310_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM4340:
+      dm4340_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM6006:
+      dm6006_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM8006:
+      dm8006_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM3507:
+      dm3507_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM10010L:
+      dm10010l_fbdata_test(motor, rx);
+      break;
+    case ROBOT_MOTOR_DM6248P:
+      dm6248p_fbdata_test(motor, rx);
+      break;
+    default:
+      break;
+  }
+}
+
 static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 11 */
@@ -275,66 +373,11 @@ static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
 			 {
 					//Data exclusionary or bit check calculation, mode 0 is sent data check
 					// Perform the checksum in mode 0 to validate the received payload.
-					if(rev_data.rx[10] ==Check_Sum(10,rev_data.rx))	 
-				  {	
-						if(rev_data.rx[1]==0)
-						{//4340		
-						  dm4340_fbdata_test(&chassis_move.joint_motor[0], rev_data.rx);
-						}
-						else if(rev_data.rx[1]==1)
-						{
-						  dm4340_fbdata_test(&chassis_move.joint_motor[1], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==2)
-						{
-						  dm4340_fbdata_test(&chassis_move.joint_motor[2], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==3)
-						{	
-						  dm4340_fbdata_test(&chassis_move.joint_motor[3], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==4)
-						{	
-						 dm4340_fbdata_test(&chassis_move.joint_motor[4], rev_data.rx);
-						}					
-						else if(rev_data.rx[1]==5)
-						{//4340	
-						  dm4340_fbdata_test(&chassis_move.joint_motor[5], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==6)
-						{
-						  dm4340_fbdata_test(&chassis_move.joint_motor[6], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==7)
-						{	
-						  dm4340_fbdata_test(&chassis_move.joint_motor[7], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==8)
-						{	
-						  dm4340_fbdata_test(&chassis_move.joint_motor[8], rev_data.rx);	
-						}
-						else if(rev_data.rx[1]==9)
-						{ //num2++;
-						  dm4340_fbdata_test(&chassis_move.joint_motor[9], rev_data.rx);	
-						}
-            else if(rev_data.rx[1]==10)
-						{ //num2++;
-						  dm4340_fbdata_test(&chassis_move.joint_motor[10], rev_data.rx);	
-						}
-            else if(rev_data.rx[1]==11)
-						{ //num2++;
-						  dm4340_fbdata_test(&chassis_move.joint_motor[11], rev_data.rx);	
-						}
-            else if(rev_data.rx[1]==12)
-						{ //num2++;
-						  dm4340_fbdata_test(&chassis_move.joint_motor[12], rev_data.rx);	
-						}
-            else if(rev_data.rx[1]==13)
-						{ //num2++;
-						  dm4340_fbdata_test(&chassis_move.joint_motor[13], rev_data.rx);	
-						}
+                                        if(rev_data.rx[10] ==Check_Sum(10,rev_data.rx))
+                                  {
+                                                CDC_DispatchFeedback(rev_data.rx[1], rev_data.rx);
 
-					}
+                                        }
 					else
 				  {
 				  	  memset(rev_data.rx, 0,RECEIVE_DATA_SIZE);

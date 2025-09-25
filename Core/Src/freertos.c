@@ -32,6 +32,7 @@
 #include "ps2_task.h"
 #include "body_task.h"
 #include "vbus_check.h"
+#include "control_board_profile.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,10 +55,16 @@
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
+#if CONTROL_BOARD_PROFILE_ENABLE_RIGHT_LEG_TASK
 osThreadId CHASSISR_TASKHandle;
+#endif
+#if CONTROL_BOARD_PROFILE_ENABLE_LEFT_LEG_TASK
 osThreadId CHASSISL_TASKHandle;
+#endif
 osThreadId CONNECT_TASKHandle;
+#if CONTROL_BOARD_PROFILE_ENABLE_BODY_TASK
 osThreadId BODY_TASKHandle;
+#endif
 osThreadId VBUS_CHECK_TASKHandle;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,21 +113,27 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
+#if CONTROL_BOARD_PROFILE_ENABLE_RIGHT_LEG_TASK
   /* definition and creation of CHASSISR_TASK */
   osThreadDef(CHASSISR_TASK, ChassisR_Task, osPriorityHigh, 0, 512);
   CHASSISR_TASKHandle = osThreadCreate(osThread(CHASSISR_TASK), NULL);
+#endif
 
+#if CONTROL_BOARD_PROFILE_ENABLE_LEFT_LEG_TASK
   /* definition and creation of CHASSISL_TASK */
   osThreadDef(CHASSISL_TASK, ChassisL_Task, osPriorityHigh, 0, 512);
   CHASSISL_TASKHandle = osThreadCreate(osThread(CHASSISL_TASK), NULL);
+#endif
 
   /* definition and creation of CONNECT_TASK */
   osThreadDef(CONNECT_TASK, CONNECT_Task, osPriorityHigh, 0, 512);
   CONNECT_TASKHandle = osThreadCreate(osThread(CONNECT_TASK), NULL);
 
+#if CONTROL_BOARD_PROFILE_ENABLE_BODY_TASK
   /* definition and creation of BODY_TASK */
   osThreadDef(BODY_TASK, Body_Task, osPriorityAboveNormal, 0, 512);
   BODY_TASKHandle = osThreadCreate(osThread(BODY_TASK), NULL);
+#endif
 
   /* definition and creation of VBUS_CHECK_TASK */
   osThreadDef(VBUS_CHECK_TASK, VBUS_CheckTask, osPriorityNormal, 0, 128);
