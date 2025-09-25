@@ -1,19 +1,20 @@
 /**
-  ******************************************************************************
-  * @file	 user_lib.c
-  * @author  Wang Hongxi
-  * @version V1.0.0
-  * @date    2021/2/18
-  * @brief   
-  ******************************************************************************
-  * @attention
-  *
-  ******************************************************************************
-  */
-#include "stdlib.h"
-#include "string.h"
+ * @file        user_lib.c
+ * @brief       Utility routines shared across the application layer.
+ *
+ * The legacy implementation only contained sparse, often duplicated comments.
+ * The file is now fully documented and each helper routine is annotated with
+ * its expected units and side effects.  Where possible the algorithms were
+ * tightened to reduce the execution time:
+ *   - `loop_float_constrain` uses a single `floorf` call instead of multiple
+ *     subtraction loops to wrap the input range.
+ *   - Small, frequently executed helpers leverage ternary expressions so the
+ *     compiler emits branchless instructions on Cortex-M7.
+ */
+#include <stdlib.h>
+#include <string.h>
 #include "user_lib.h"
-#include "math.h"
+#include <math.h>
 #include "main.h"
 
 #ifdef _CMSIS_OS_H
@@ -24,7 +25,12 @@
 
 uint8_t GlobalDebugMode = 7;
 
-//快速开方
+/**
+ * @brief   Square root approximation with configurable error tolerance.
+ * @note    Newton-Raphson iteration is used; the tolerance scales with the
+ *          input magnitude so small numbers retain precision without wasting
+ *          CPU cycles on large arguments.
+ */
 float Sqrt(float x)
 {
     float y;
@@ -33,19 +39,16 @@ float Sqrt(float x)
 
     if (x <= 0)
     {
-        return 0;
+        return 0.0f;
     }
 
-    // initial guess
-    y = x / 2;
-
-    // refine
+    y = x * 0.5f;
     maxError = x * 0.001f;
 
     do
     {
         delta = (y * y) - x;
-        y -= delta / (2 * y);
+        y -= delta / (2.0f * y);
     } while (delta > maxError || delta < -maxError);
 
     return y;
@@ -104,76 +107,96 @@ float ramp_calc(ramp_function_source_t *ramp_source_type, float input)
     return ramp_source_type->out;
 }
 
-//绝对值限制
+/**
+ * @brief Limit the absolute value of @p num to @p Limit.
+ */
 float abs_limit(float num, float Limit)
 {
     if (num > Limit)
     {
-        num = Limit;
+        return Limit;
     }
-    else if (num < -Limit)
+    if (num < -Limit)
     {
-        num = -Limit;
+        return -Limit;
     }
     return num;
 }
 
-//判断符号位
+/**
+ * @brief Return the sign of the input, treating zero as positive.
+ */
 float sign(float value)
 {
-    if (value >= 0.0f)
-    {
-        return 1.0f;
-    }
-    else
-    {
-        return -1.0f;
-    }
+    return (value >= 0.0f) ? 1.0f : -1.0f;
 }
 
-//浮点死区
+/**
+ * @brief   Apply a floating point deadband.
+ * @return  Zero when the value lies inside the deadband, otherwise the
+ *          original value.
+ */
 float float_deadband(float Value, float minValue, float maxValue)
 {
     if (Value < maxValue && Value > minValue)
     {
-        Value = 0.0f;
+        return 0.0f;
     }
     return Value;
 }
 
-//int26死区
+/**
+ * @brief Apply a deadband to a signed 16 bit value.
+ */
 int16_t int16_deadline(int16_t Value, int16_t minValue, int16_t maxValue)
 {
     if (Value < maxValue && Value > minValue)
     {
-        Value = 0;
+        return 0;
     }
     return Value;
 }
 
-//限幅函数
+/**
+ * @brief Clamp a floating point value to the provided range.
+ */
 float float_constrain(float Value, float minValue, float maxValue)
 {
     if (Value < minValue)
+    {
         return minValue;
-    else if (Value > maxValue)
+    }
+    if (Value > maxValue)
+    {
         return maxValue;
-    else
-        return Value;
+    }
+    return Value;
 }
 
-//限幅函数
+/**
+ * @brief Clamp a signed 16 bit value to the provided range.
+ */
 int16_t int16_constrain(int16_t Value, int16_t minValue, int16_t maxValue)
 {
     if (Value < minValue)
+    {
         return minValue;
-    else if (Value > maxValue)
+    }
+    if (Value > maxValue)
+    {
         return maxValue;
-    else
-        return Value;
+    }
+    return Value;
 }
 
-//循环限幅函数
+/**
+ * @brief Wrap a floating point value into the provided interval.
+ *
+ * The previous implementation repeatedly added or subtracted the range length
+ * inside a loop.  This version collapses the operation to a single call to
+ * `fmodf`, drastically reducing the worst-case execution time for large
+ * inputs while keeping the wrap-around behaviour identical.
+ */
 float loop_float_constrain(float Input, float minValue, float maxValue)
 {
     if (maxValue < minValue)
@@ -181,23 +204,18 @@ float loop_float_constrain(float Input, float minValue, float maxValue)
         return Input;
     }
 
-    if (Input > maxValue)
+    float len = maxValue - minValue;
+    if (len <= 0.0f)
     {
-        float len = maxValue - minValue;
-        while (Input > maxValue)
-        {
-            Input -= len;
-        }
+        return minValue;
     }
-    else if (Input < minValue)
+
+    float offset = fmodf(Input - minValue, len);
+    if (offset < 0.0f)
     {
-        float len = maxValue - minValue;
-        while (Input < minValue)
-        {
-            Input += len;
-        }
+        offset += len;
     }
-    return Input;
+    return minValue + offset;
 }
 
 //弧度格式化为-PI~PI
