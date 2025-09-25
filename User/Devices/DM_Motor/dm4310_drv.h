@@ -263,6 +263,7 @@ extern void dm4310_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 extern void dm4340_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 extern void dm6006_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 extern void dm8006_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
+extern void dm3507_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 extern void dm10010l_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 extern void dm6248p_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data);
 

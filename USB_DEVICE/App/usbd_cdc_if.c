@@ -127,55 +127,7 @@ extern USBD_HandleTypeDef hUsbDeviceHS;
 static int8_t CDC_Init_HS(void);
 static int8_t CDC_DeInit_HS(void);
 static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length);
-static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx)
-{
-  const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
-  if (index >= profile->telemetry_joint_count)
-  {
-    return;
-  }
-
-  const RobotJointId joint = profile->telemetry_joints[index];
-  Joint_Motor_t *motor = RobotJointManager_GetMotor(joint);
-  if (motor == NULL)
-  {
-    return;
-  }
-
-  const RobotJointHardwareConfig *hw = RobotJointHardware_GetConfig(joint);
-  if (hw == NULL)
-  {
-    return;
-  }
-
-  switch (hw->model)
-  {
-    case ROBOT_MOTOR_DM4310:
-      dm4310_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM4340:
-      dm4340_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM6006:
-      dm6006_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM8006:
-      dm8006_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM3507:
-      dm3507_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM10010L:
-      dm10010l_fbdata_test(motor, rx);
-      break;
-    case ROBOT_MOTOR_DM6248P:
-      dm6248p_fbdata_test(motor, rx);
-      break;
-    default:
-      break;
-  }
-}
-
+static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx);
 static int8_t CDC_Receive_HS(uint8_t* pbuf, uint32_t *Len);
 static int8_t CDC_TransmitCplt_HS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 
