@@ -124,10 +124,10 @@ int main(void)
 	DWT_Init(480);
   HAL_TIM_Base_Start_IT(&htim3);
 	
-	Power_OUT1_ON;//imu��ʼ����ɣ��ɿص�Դ�򿪣�led����
+	Power_OUT1_ON; // Power up the IMU supply rail and turn on the status LED.
 	Power_OUT2_ON;
 	
-  FDCAN1_Config();//can��������ʼ��
+  FDCAN1_Config(); // Configure the CAN bus interfaces.
 	FDCAN2_Config();
   /* USER CODE END 2 */
 

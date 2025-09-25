@@ -17,7 +17,7 @@ void FDCAN1_Config(void)
 {
   FDCAN_FilterTypeDef sFilterConfig;
   /* Configure Rx filter */	
-	sFilterConfig.IdType = FDCAN_STANDARD_ID;//��չID������
+        sFilterConfig.IdType = FDCAN_STANDARD_ID; // Accept only standard identifiers.
   sFilterConfig.FilterIndex = 0;
   sFilterConfig.FilterType = FDCAN_FILTER_MASK;
   sFilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
@@ -28,11 +28,9 @@ void FDCAN1_Config(void)
 		Error_Handler();
 	}
  
-/* ȫ�ֹ������� */
-/* ���յ���ϢID���׼ID���˲�ƥ�䣬������ */
-/* ���յ���ϢID����չID���˲�ƥ�䣬������ */
-/* ���˱�׼IDԶ��֡ */ 
-/* ������չIDԶ��֡ */ 
+/* Configure the global filter so that only frames matching an explicit filter are accepted.
+ * Remote frames are also rejected to ensure that the bus is only used for data frames.
+ */
   if (HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK)
   {
     Error_Handler();
@@ -42,7 +40,7 @@ void FDCAN1_Config(void)
     Error_Handler();
   }
 	
-	/* ����RX FIFO0���������ж� */
+        /* Enable the RX FIFO0 interrupt on both CAN instances. */
   if (HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK)
   {
     Error_Handler();
@@ -115,7 +113,7 @@ uint8_t canx_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, ui
   TxHeader.TxFrameType = FDCAN_DATA_FRAME;  
   if(len<=8)	
 	{
-	  TxHeader.DataLength = len;     // ���ͳ��ȣ�8byte
+          TxHeader.DataLength = len;     // Payload length for classic CAN frames (up to 8 bytes).
 	}
 	else  if(len==12)	
 	{
@@ -143,11 +141,11 @@ uint8_t canx_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, ui
 											
 	TxHeader.ErrorStateIndicator =  FDCAN_ESI_ACTIVE;
   TxHeader.BitRateSwitch = FDCAN_BRS_ON;
-  TxHeader.FDFormat =  FDCAN_FD_CAN;            // CANFD
+  TxHeader.FDFormat =  FDCAN_FD_CAN;            // Use CAN FD format when supported by the message length.
   TxHeader.TxEventFifoControl =  FDCAN_NO_TX_EVENTS;  
-  TxHeader.MessageMarker = 0;//��Ϣ���
+  TxHeader.MessageMarker = 0;            // No marker attached to the message.
 
-   // ����CANָ��
+   // Queue the frame for transmission.
 	 HAL_FDCAN_AddMessageToTxFifoQ(hcan, &TxHeader, data);
 	 return 0;
 }
@@ -206,7 +204,7 @@ void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud)
 			case CAN_BR_500K: 	nom_brp=1 ; nom_seg1=139; nom_seg2=20; nom_sjw=20; break; // sample point 87.5%
 			case CAN_BR_1M:		nom_brp=1 ; nom_seg1=59 ; nom_seg2=20; nom_sjw=20; break; // sample point 75%
 		}
-		dat_brp=1 ; dat_seg1=29; dat_seg2=10; dat_sjw=10;	// ������Ĭ��1M
+		dat_brp=1 ; dat_seg1=29; dat_seg2=10; dat_sjw=10;	// Default data-phase timing for 1 Mbps.
 		hfdcan->Init.FrameFormat = FDCAN_FRAME_CLASSIC;
 	}
 	/*	data_baud	 = 80M/brp/(1+seg1+seg2)
@@ -225,7 +223,7 @@ void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud)
 			case CAN_BR_4M: 	dat_brp=1 ; dat_seg1=14; dat_seg2=5 ; dat_sjw=5 ; break;	// sample point 75%
 			case CAN_BR_5M:		dat_brp=1 ; dat_seg1=13; dat_seg2=2 ; dat_sjw=2 ; break;	// sample point 87.5%
 		}
-		nom_brp=1 ; nom_seg1=59 ; nom_seg2=20; nom_sjw=20; // �ٲ���Ĭ��1M
+		nom_brp=1 ; nom_seg1=59 ; nom_seg2=20; nom_sjw=20; // Default arbitration-phase timing for 1 Mbps.
 		hfdcan->Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 	}
 	
