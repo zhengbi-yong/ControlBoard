@@ -2104,6 +2104,11 @@
               <FilePath>..\User\APP\connect_task.c</FilePath>
             </File>
             <File>
+              <FileName>control_board_profile.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\APP\control_board_profile.c</FilePath>
+            </File>
+            <File>
               <FileName>vbus_check.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\APP\vbus_check.c</FilePath>
