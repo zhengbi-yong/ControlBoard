@@ -1,5 +1,7 @@
 #ifndef __DM4310_DRV_H__
 #define __DM4310_DRV_H__
+#include <stdbool.h>
+
 #include "main.h"
 #include "fdcan.h"
 #include "can_bsp.h"
@@ -132,11 +134,90 @@ typedef struct
 
 typedef struct
 {
-	uint16_t mode;
-	float wheel_T;//��챵�������Ť�أ���λΪN
-	
-	motor_fbpara_t para;	
+        uint16_t mode;
+        float wheel_T;//��챵�������Ť�أ���λΪN
+
+        motor_fbpara_t para;
 }Wheel_Motor_t ;
+
+typedef enum
+{
+    ROBOT_MOTOR_DM4310 = 0,
+    ROBOT_MOTOR_DM4340,
+    ROBOT_MOTOR_DM6006,
+    ROBOT_MOTOR_DM8006,
+    ROBOT_MOTOR_DM3507,
+    ROBOT_MOTOR_DM10010L,
+    ROBOT_MOTOR_DM6248P,
+    ROBOT_MOTOR_UNKNOWN
+} RobotMotorModel;
+
+typedef enum
+{
+    ROBOT_LIMB_WAIST = 0,
+    ROBOT_LIMB_NECK,
+    ROBOT_LIMB_LEFT_ARM,
+    ROBOT_LIMB_RIGHT_ARM,
+    ROBOT_LIMB_LEFT_LEG,
+    ROBOT_LIMB_RIGHT_LEG,
+    ROBOT_LIMB_COUNT
+} RobotLimb;
+
+typedef enum
+{
+    ROBOT_JOINT_WAIST_YAW = 0,
+    ROBOT_JOINT_NECK_YAW,
+    ROBOT_JOINT_NECK_PITCH,
+    ROBOT_JOINT_NECK_ROLL,
+    ROBOT_JOINT_LEFT_ARM_SHOULDER_PITCH,
+    ROBOT_JOINT_LEFT_ARM_SHOULDER_ROLL,
+    ROBOT_JOINT_LEFT_ARM_ELBOW,
+    ROBOT_JOINT_LEFT_ARM_WRIST,
+    ROBOT_JOINT_RIGHT_ARM_SHOULDER_PITCH,
+    ROBOT_JOINT_RIGHT_ARM_SHOULDER_ROLL,
+    ROBOT_JOINT_RIGHT_ARM_ELBOW,
+    ROBOT_JOINT_RIGHT_ARM_WRIST,
+    ROBOT_JOINT_LEFT_LEG_HIP_PITCH,
+    ROBOT_JOINT_LEFT_LEG_HIP_YAW,
+    ROBOT_JOINT_LEFT_LEG_HIP_ROLL,
+    ROBOT_JOINT_LEFT_LEG_KNEE,
+    ROBOT_JOINT_LEFT_LEG_ANKLE_PITCH,
+    ROBOT_JOINT_LEFT_LEG_ANKLE_ROLL,
+    ROBOT_JOINT_LEFT_LEG_TOE,
+    ROBOT_JOINT_RIGHT_LEG_HIP_PITCH,
+    ROBOT_JOINT_RIGHT_LEG_HIP_YAW,
+    ROBOT_JOINT_RIGHT_LEG_HIP_ROLL,
+    ROBOT_JOINT_RIGHT_LEG_KNEE,
+    ROBOT_JOINT_RIGHT_LEG_ANKLE_PITCH,
+    ROBOT_JOINT_RIGHT_LEG_ANKLE_ROLL,
+    ROBOT_JOINT_RIGHT_LEG_TOE,
+    ROBOT_JOINT_COUNT
+} RobotJointId;
+
+typedef struct
+{
+    RobotJointId joint_id;
+    RobotMotorModel model;
+    RobotLimb limb;
+    uint16_t command_id;
+    uint16_t feedback_id;
+    uint16_t default_mode;
+    hcan_t *bus;
+    const char *name;
+} RobotJointHardwareConfig;
+
+typedef struct
+{
+    RobotJointId joint_id;
+    Joint_Motor_t *joint;
+    RobotMotorModel model;
+    RobotLimb limb;
+    hcan_t *bus;
+    uint16_t command_id;
+    uint16_t feedback_id;
+    uint16_t mode;
+    const char *name;
+} RobotJointConfig;
 
 
 extern void dm6006_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len);
@@ -193,6 +274,20 @@ extern void dm6006_fbdata_init(Joint_Motor_t *motor);
 extern void dm8006_fbdata_init(Joint_Motor_t *motor);
 extern void dm10010l_fbdata_init(Joint_Motor_t *motor);
 extern void dm6248p_fbdata_init(Joint_Motor_t *motor);
+
+extern const RobotJointHardwareConfig *RobotJointHardware_GetConfig(RobotJointId joint_id);
+extern bool RobotJointHardware_SetConfig(const RobotJointHardwareConfig *config);
+
+extern void RobotJointManager_Reset(void);
+extern bool RobotJointManager_Register(const RobotJointConfig *config);
+extern bool RobotJointManager_RegisterJoint(RobotJointId joint_id, Joint_Motor_t *joint, uint16_t override_mode);
+extern Joint_Motor_t *RobotJointManager_GetMotor(RobotJointId joint_id);
+extern bool RobotJointManager_SendMIT(RobotJointId joint_id, float pos, float vel, float kp, float kd, float torq);
+extern bool RobotJointManager_SendMITUsingCache(RobotJointId joint_id);
+extern bool RobotJointManager_SaveZero(RobotJointId joint_id);
+extern void RobotJointManager_EnableLimb(RobotLimb limb, uint8_t repeat, uint16_t delay_ms);
+extern void RobotJointManager_EnableAll(uint8_t repeat, uint16_t delay_ms);
+extern void RobotJointManager_HandleFeedback(hcan_t *bus, uint16_t feedback_id, uint8_t *data, uint32_t len);
 #endif /* __DM4310_DRV_H__ */
 
 
