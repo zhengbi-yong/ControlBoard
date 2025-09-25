@@ -7,7 +7,9 @@
 #define READ_DATA_CHECK   0U          /**< Flag indicating that inbound frames require checksum validation. */
 #define FRAME_HEADER      0X7B        /**< Start byte for every UART frame. */
 #define FRAME_TAIL        0X7D        /**< End byte for every UART frame. */
-#define RECEIVE_DATA_SIZE 11U         /**< Number of bytes received from the companion computer. */
+#define RECEIVE_DATA_SIZE 11U         /**< Number of bytes received from the companion computer.
+                                       *< When bit 7 of byte[1] is set the payload encodes a
+                                       *< MIT command frame (see tools/motor_test.py). */
 #define SEND_DATA_SIZE    72U         /**< Number of bytes transmitted to the companion computer. */
 
 /**

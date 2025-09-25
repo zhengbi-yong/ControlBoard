@@ -25,6 +25,7 @@
 #include "control_board_profile.h"
 #include "dm4310_drv.h"
 #include "bsp_usart1.h"
+#include "body_task.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -128,6 +129,7 @@ static int8_t CDC_Init_HS(void);
 static int8_t CDC_DeInit_HS(void);
 static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length);
 static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx);
+static void CDC_HandleCommandFrame(uint8_t encoded_index, uint8_t *rx);
 static int8_t CDC_Receive_HS(uint8_t* pbuf, uint32_t *Len);
 static int8_t CDC_TransmitCplt_HS(uint8_t *pbuf, uint32_t *Len, uint8_t epnum);
 
@@ -264,9 +266,102 @@ static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   * @param  Len: Number of data received (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAILL
   */
+static const ControlBoardBodyJointConfig *CDC_FindBodyJointConfig(const ControlBoardProfile *profile,
+                                                                  RobotJointId joint)
+{
+  if (profile == NULL)
+  {
+    return NULL;
+  }
+
+  for (size_t i = 0; i < profile->body_joint_count; ++i)
+  {
+    if (profile->body_joints[i].joint == joint)
+    {
+      return &profile->body_joints[i];
+    }
+  }
+
+  return NULL;
+}
+
+static void CDC_HandleCommandFrame(uint8_t encoded_index, uint8_t *rx)
+{
+  const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
+  const RobotJointId joint = (RobotJointId)(encoded_index & 0x7FU);
+
+  if (joint >= ROBOT_JOINT_COUNT)
+  {
+    return;
+  }
+
+  const uint8_t command = rx[2];
+  const int16_t pos_raw = (int16_t)((rx[4] << 8) | rx[3]);
+  const int16_t vel_raw = (int16_t)((rx[6] << 8) | rx[5]);
+  const uint8_t kp_raw = rx[7];
+  const uint8_t kd_raw = rx[8];
+  const uint8_t ramp_raw = rx[9];
+
+  const float target_pos = (float)pos_raw / 1000.0f;
+  const float target_vel = (float)vel_raw / 1000.0f;
+  const float kp = (kp_raw > 0U) ? ((float)kp_raw * 0.5f) : 0.0f;
+  const float kd = (kd_raw > 0U) ? ((float)kd_raw * 0.05f) : 0.0f;
+  const float ramp = (ramp_raw > 0U) ? ((float)ramp_raw / 1000.0f) : 0.0f;
+
+  const ControlBoardBodyJointConfig *body_cfg = CDC_FindBodyJointConfig(profile, joint);
+  const float body_default_kp = (body_cfg != NULL) ? body_cfg->kp : 0.0f;
+  const float body_default_kd = (body_cfg != NULL) ? body_cfg->kd : 0.0f;
+  const float body_default_ramp = (body_cfg != NULL) ? body_cfg->ramp : 0.0f;
+
+  float kp_cmd = kp;
+  float kd_cmd = kd;
+  float ramp_cmd = (ramp > 0.0f) ? ramp : body_default_ramp;
+
+  if (kp_cmd <= 0.0f)
+  {
+    kp_cmd = body_default_kp;
+  }
+
+  if (kd_cmd <= 0.0f)
+  {
+    kd_cmd = body_default_kd;
+  }
+
+  switch (command)
+  {
+    case 0x00:
+      RobotJointManager_SendMIT(joint, 0.0f, 0.0f, 0.0f, kd_cmd, 0.0f);
+      if (body_cfg != NULL)
+      {
+        Body_SetJointRamp(joint, ramp_cmd);
+        Body_SetJointTarget(joint, 0.0f, 0.0f, 0.0f, kd_cmd, 0.0f);
+      }
+      break;
+
+    case 0x01:
+    default:
+      if (body_cfg != NULL)
+      {
+        Body_SetJointRamp(joint, ramp_cmd);
+        Body_SetJointTarget(joint, target_pos, target_vel, kp_cmd, kd_cmd, 0.0f);
+      }
+      RobotJointManager_SendMIT(joint, target_pos, target_vel, (kp_cmd > 0.0f) ? kp_cmd : 0.0f,
+                                (kd_cmd > 0.0f) ? kd_cmd : 0.0f, 0.0f);
+      break;
+  }
+
+}
+
 static void CDC_DispatchFeedback(uint8_t index, uint8_t *rx)
 {
   const ControlBoardProfile *profile = ControlBoardProfile_GetActive();
+
+  if ((index & 0x80U) != 0U)
+  {
+    CDC_HandleCommandFrame(index, rx);
+    return;
+  }
+
   if (index >= profile->telemetry_joint_count)
   {
     return;
