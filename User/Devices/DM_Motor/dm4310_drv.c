@@ -634,29 +634,48 @@ void dm6006_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data)
 }
 
 void dm8006_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data)
-{ 
-	motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
-	 
-	motor->para.v_int_test=(((int16_t)rx_data[4])<<4)|((rx_data[5]&0xF0)>>4);
-							
-	motor->para.kp_int_test=(((int16_t)(rx_data[5]&0x0F))<<8)|rx_data[6];
-							
-	motor->para.kd_int_test=(((int16_t)rx_data[7])<<4)|((rx_data[8]&0xF0)>>4);
-							
-	motor->para.t_int_test=(((int16_t)(rx_data[8]&0x0F))<<8)|rx_data[9];
-							
-	motor->para.pos_set = uint_to_float(motor->para.p_int_test, P_MIN4, P_MAX4, 16);
-	motor->para.vel_set = uint_to_float(motor->para.v_int_test, V_MIN4, V_MAX4, 12); 
-	motor->para.tor_set = uint_to_float(motor->para.t_int_test, T_MIN4, T_MAX4, 12);
-	motor->para.kp_test = uint_to_float(motor->para.kp_int_test, KP_MIN4, KP_MAX4, 12);
-	motor->para.kd_test = uint_to_float(motor->para.kd_int_test, KD_MIN4, KD_MAX4, 12);
+{
+        motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
+
+        motor->para.v_int_test=(((int16_t)rx_data[4])<<4)|((rx_data[5]&0xF0)>>4);
+
+        motor->para.kp_int_test=(((int16_t)(rx_data[5]&0x0F))<<8)|rx_data[6];
+
+        motor->para.kd_int_test=(((int16_t)rx_data[7])<<4)|((rx_data[8]&0xF0)>>4);
+
+        motor->para.t_int_test=(((int16_t)(rx_data[8]&0x0F))<<8)|rx_data[9];
+
+        motor->para.pos_set = uint_to_float(motor->para.p_int_test, P_MIN4, P_MAX4, 16);
+        motor->para.vel_set = uint_to_float(motor->para.v_int_test, V_MIN4, V_MAX4, 12);
+        motor->para.tor_set = uint_to_float(motor->para.t_int_test, T_MIN4, T_MAX4, 12);
+        motor->para.kp_test = uint_to_float(motor->para.kp_int_test, KP_MIN4, KP_MAX4, 12);
+        motor->para.kd_test = uint_to_float(motor->para.kd_int_test, KD_MIN4, KD_MAX4, 12);
+}
+
+void dm3507_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data)
+{
+        motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
+
+        motor->para.v_int_test=(((int16_t)rx_data[4])<<4)|((rx_data[5]&0xF0)>>4);
+
+        motor->para.kp_int_test=(((int16_t)(rx_data[5]&0x0F))<<8)|rx_data[6];
+
+        motor->para.kd_int_test=(((int16_t)rx_data[7])<<4)|((rx_data[8]&0xF0)>>4);
+
+        motor->para.t_int_test=(((int16_t)(rx_data[8]&0x0F))<<8)|rx_data[9];
+
+        motor->para.pos_set = uint_to_float(motor->para.p_int_test, P_MIN5, P_MAX5, 16);
+        motor->para.vel_set = uint_to_float(motor->para.v_int_test, V_MIN5, V_MAX5, 12);
+        motor->para.tor_set = uint_to_float(motor->para.t_int_test, T_MIN5, T_MAX5, 12);
+        motor->para.kp_test = uint_to_float(motor->para.kp_int_test, KP_MIN5, KP_MAX5, 12);
+        motor->para.kd_test = uint_to_float(motor->para.kd_int_test, KD_MIN5, KD_MAX5, 12);
 }
 
 void dm10010l_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data)
-{ 
-	motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
-	 
-	motor->para.v_int_test=(((int16_t)rx_data[4])<<4)|((rx_data[5]&0xF0)>>4);
+{
+        motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
+
+        motor->para.v_int_test=(((int16_t)rx_data[4])<<4)|((rx_data[5]&0xF0)>>4);
 							
 	motor->para.kp_int_test=(((int16_t)(rx_data[5]&0x0F))<<8)|rx_data[6];
 							
