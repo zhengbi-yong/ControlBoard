@@ -113,13 +113,39 @@ Tune task priorities and stack sizes in `freertos.c` if you add custom workloads
 | Motors do not respond | Verify CAN wiring, termination resistors, and that the correct motor mode is enabled via `enable_motor_mode`. |
 | Telemetry values are zero | Ensure the correct joint index is sent in the feedback frame and that `CDC_DispatchFeedback` maps it to a configured joint. |
 
-## 7. Extending the Firmware
+## 7. Host Utilities
+
+Two helper scripts located under `tools/` streamline day-to-day operations:
+
+- `switch_profile.py` rewrites `User/APP/control_board_profile.h` so that the
+  firmware targets the desired limb controller. Example usage:
+
+  ```bash
+  python tools/switch_profile.py left_leg
+  ```
+
+  Supported profiles are `neck`, `left_arm`, `right_arm`, `left_leg`,
+  `right_leg`, and `waist`. Rebuild the firmware after switching profiles.
+
+- `motor_test.py` sends MIT-style set-points over the USB CDC port and is handy
+  to validate wiring once the board is flashed. It requires `pyserial`:
+
+  ```bash
+  pip install pyserial
+  python tools/motor_test.py /dev/ttyACM0 --joint left_knee --min -0.2 --max 0.2 --cycles 5
+  ```
+
+  The script accepts multiple `--joint` arguments if you want to move several
+  actuators simultaneously. Each frame reuses the CAN identifiers listed in
+  `docs/motor_id_setup.md` so the command takes effect immediately.
+
+## 8. Extending the Firmware
 
 - Add new actuator types by extending the `RobotMotorModel` enum and providing `*_fbdata` / `*_fbdata_test` helpers.
 - Create additional USB commands by editing `CDC_DispatchFeedback` and the parsing logic in `usbd_cdc_if.c`.
 - For deterministic control cycles, pin the controller task to a dedicated FreeRTOS timer using `xTimerCreate` in `freertos.c`.
 
-## 8. Revision History
+## 9. Revision History
 
 - **2024-05-XX** – Initial public release.
 - **2024-06-XX** – Updated USB CDC feedback dispatch, added DM3507 telemetry helper, documentation refresh.
