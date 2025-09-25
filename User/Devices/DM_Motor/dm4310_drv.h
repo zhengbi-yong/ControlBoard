@@ -58,7 +58,7 @@
 #define T_MIN4 -20.0f
 #define T_MAX4 20.0f
 
-//С�ؽ�3507
+//3507
 #define P_MIN5 -12.5f
 #define P_MAX5 12.5f
 #define V_MIN5 -50.0f
@@ -97,32 +97,32 @@
 typedef struct 
 {
 	uint16_t id;
-	uint16_t state;
-  //���ʵ�ʷ���������
-	int p_int;
-	int v_int;
-	int t_int;
-	int kp_int;
-	int kd_int;
+        uint16_t state;
+        // Raw integer feedback values reported by the motor driver.
+        int p_int;
+        int v_int;
+        int t_int;
+        int kp_int;
+        int kd_int;
 	float pos;
 	float vel;
-	float tor;
-	float kp;
-	float kd;
-	float Tmos;
-	float Tcoil;
-	
-	float kp_test;
-	float kd_test;
-	float tor_set;
-	float pos_set;
-	float vel_set;
-	//��λ��������
-	int kp_int_test;
-	int kd_int_test;
-	int p_int_test;
-	int v_int_test;
-	int t_int_test;
+        float tor;
+        float kp;
+        float kd;
+        float Tmos;
+        float Tcoil;
+
+        float kp_test;
+        float kd_test;
+        float tor_set;
+        float pos_set;
+        float vel_set;
+        // Cached command words used when replaying MIT-mode set points.
+        int kp_int_test;
+        int kd_int_test;
+        int p_int_test;
+        int v_int_test;
+        int t_int_test;
 }motor_fbpara_t;
 
 
@@ -135,7 +135,7 @@ typedef struct
 typedef struct
 {
         uint16_t mode;
-        float wheel_T;//��챵�������Ť�أ���λΪN
+        float wheel_T; // Estimated wheel torque in newtons.
 
         motor_fbpara_t para;
 }Wheel_Motor_t ;
@@ -249,8 +249,8 @@ extern void mit_ctrl5(hcan_t* hcan, uint16_t motor_id, float pos, float vel,floa
 extern void joint_motor_init(Joint_Motor_t *motor,uint16_t id,uint16_t mode);
 extern void wheel_motor_init(Wheel_Motor_t *motor,uint16_t id,uint16_t mode);
 	
-extern float Hex_To_Float(uint32_t *Byte,int num);//ʮ�����Ƶ�������
-extern uint32_t FloatTohex(float HEX);//��������ʮ������ת��
+extern float Hex_To_Float(uint32_t *Byte,int num);   /**< Reinterpret a 32-bit word as a float. */
+extern uint32_t FloatTohex(float HEX);              /**< Reinterpret a float as a raw 32-bit word. */
 
 extern float uint_to_float(int x_int, float x_min, float x_max, int bits);
 extern int float_to_uint(float x_float, float x_min, float x_max, int bits);
@@ -272,6 +272,7 @@ extern void dm4310_fbdata_init(Joint_Motor_t *motor);
 extern void dm4340_fbdata_init(Joint_Motor_t *motor);
 extern void dm6006_fbdata_init(Joint_Motor_t *motor);
 extern void dm8006_fbdata_init(Joint_Motor_t *motor);
+extern void dm3507_fbdata_init(Joint_Motor_t *motor);
 extern void dm10010l_fbdata_init(Joint_Motor_t *motor);
 extern void dm6248p_fbdata_init(Joint_Motor_t *motor);
 

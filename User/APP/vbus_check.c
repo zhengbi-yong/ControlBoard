@@ -1,14 +1,14 @@
 /**
   *********************************************************************
   * @file      VBUS_Check_task.c/h
-  * @brief     ���������ڼ���ص�ѹ������⵽��ص�ѹ����22Vʱ��ʧ�����е��
-  * @note       
+  * @brief     Monitor the DC bus voltage and shut down the actuators when it drops below 22 V.
+  * @note
   * @history
   *
   @verbatim
-  ==============================================================================
+  ===============================================================================
 
-  ==============================================================================
+  ===============================================================================
   @endverbatim
   *********************************************************************
   */
@@ -48,7 +48,7 @@ void VBUS_Check_task(void)
 		vbus = ((adc_val[1]+calibration_value)*3.3f/65535)*11.0f;
 		
 		if(6.0f<vbus&&vbus<vbus_threhold_call)
-		{//��ص�ѹС��22.6V������������
+		{// Sound the buzzer when the voltage approaches the warning threshold (22.6 V).
 			Buzzer_ON;
 		}
 		else
@@ -56,12 +56,12 @@ void VBUS_Check_task(void)
 			Buzzer_OFF;
 		}
 		if(6.0f<vbus&&vbus<vbus_threhold_disable)
-		{//��ص�ѹС��22.2V��ʧ�ܵ��
+		{// Below 22.2 V the robot can no longer operate safely; shut everything down.
 			loss_voltage=1;
 			Power_OUT2_OFF;
 			Power_OUT1_OFF;
 			
-			//��ص�ѹ���ˣ�ʧ�ܵ��
+			// Disable all joints to avoid brown-out behaviour.
 			for(int j=0;j<7;j++)
 			{
 				disable_motor_mode(&hfdcan1,chassis_move.joint_motor[7].para.id,chassis_move.joint_motor[7].mode);

@@ -1,14 +1,14 @@
 /**
   *********************************************************************
   * @file      observe_task.c/h
-  * @brief     �������ǶԻ����˶��ٶȹ��ƣ��������ƴ�
-  * @note       
+  * @brief     Stream joint telemetry to the host computer and forward it over USB.
+  * @note
   * @history
   *
   @verbatim
-  ==============================================================================
+  ===============================================================================
 
-  ==============================================================================
+  ===============================================================================
   @endverbatim
   *********************************************************************
   */
@@ -28,7 +28,7 @@ extern send_data_t send_data;
 #define LOAD_LENGTH 71
 extern chassis_t chassis_move;																 															 														 
 
-uint32_t OBSERVE_TIME=1;//����������3ms	
+uint32_t OBSERVE_TIME=1;// Period of the telemetry task expressed in milliseconds.	
 															 
 void 	Connect_task(void)
 {

@@ -291,27 +291,27 @@ static RobotJointBusCache g_joint_bus_cache[ROBOT_JOINT_MAX_BUS_COUNT];
 static uint32_t g_joint_bus_cache_count = 0U;
 static bool g_joint_initialized = false;
 
-float Hex_To_Float(uint32_t *Byte,int num)//ʮ�����Ƶ�������
+/**
+ * @brief Interpret the provided 32-bit word as an IEEE754 floating-point value.
+ */
+float Hex_To_Float(uint32_t *Byte,int num)
 {
-	return *((float*)Byte);
+        (void)num;
+        return *((float*)Byte);
 }
 
-uint32_t FloatTohex(float HEX)//��������ʮ������ת��
+uint32_t FloatTohex(float HEX)
 {
-	return *( uint32_t *)&HEX;
+        return *( uint32_t *)&HEX;
 }
 
 /**
-************************************************************************
-* @brief:      	float_to_uint: ������ת��Ϊ�޷�����������
-* @param[in]:   x_float:	��ת���ĸ�����
-* @param[in]:   x_min:		��Χ��Сֵ
-* @param[in]:   x_max:		��Χ���ֵ
-* @param[in]:   bits: 		Ŀ���޷���������λ��
-* @retval:     	�޷����������
-* @details:    	�������ĸ����� x ��ָ����Χ [x_min, x_max] �ڽ�������ӳ�䣬ӳ����Ϊһ��ָ��λ�����޷�������
-************************************************************************
-**/
+ * @brief Convert a float into an unsigned integer limited to a given range.
+ *
+ * The helper rescales the floating point number into the interval defined by
+ * @p x_min and @p x_max and maps it to an unsigned integer that fits within
+ * @p bits bits.
+ */
 int float_to_uint(float x_float, float x_min, float x_max, int bits)
 {
         /* Converts a float to an unsigned int, given range and number of bits */
@@ -422,16 +422,12 @@ static RobotJointEntry *RobotJointManager_LookupEntry(hcan_t *bus, uint16_t feed
     return cache->feedback_lookup[feedback_id];
 }
 /**
-************************************************************************
-* @brief:      	uint_to_float: �޷�������ת��Ϊ����������
-* @param[in]:   x_int: ��ת�����޷�������
-* @param[in]:   x_min: ��Χ��Сֵ
-* @param[in]:   x_max: ��Χ���ֵ
-* @param[in]:   bits:  �޷���������λ��
-* @retval:     	���������
-* @details:    	���������޷������� x_int ��ָ����Χ [x_min, x_max] �ڽ�������ӳ�䣬ӳ����Ϊһ��������
-************************************************************************
-**/
+ * @brief Convert an unsigned integer into a floating-point value.
+ *
+ * The helper performs the inverse mapping of @ref float_to_uint.
+ * It scales the integer stored in @p x_int back into the range defined by
+ * @p x_min and @p x_max.
+ */
 float uint_to_float(int x_int, float x_min, float x_max, int bits)
 {
 	/* converts unsigned int to float, given range and number of bits */
@@ -453,20 +449,16 @@ void wheel_motor_init(Wheel_Motor_t *motor,uint16_t id,uint16_t mode)
 }
 
 /**
-************************************************************************
-* @brief:      	dm4310_fbdata: ��ȡDM4310����������ݺ���
-* @param[in]:   motor:    ָ��motor_t�ṹ��ָ�룬������������Ϣ�ͷ�������
-* @param[in]:   rx_data:  ָ������������ݵ�����ָ��
-* @param[in]:   data_len: ���ݳ���
-* @retval:     	void
-* @details:    	�ӽ��յ�����������ȡDM4310����ķ�����Ϣ���������ID��
-*               ״̬��λ�á��ٶȡ�Ť������¶Ȳ������Ĵ������ݵ�
-************************************************************************
-**/
+ * @brief Decode the standard feedback frame produced by a DM4310 actuator.
+ *
+ * The 8-byte MIT frame layout is common across most DM series motors. The
+ * helper extracts the packed integers and stores both the raw words and the
+ * converted engineering values inside @p motor.
+ */
 void dm4310_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
-{ 
-	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+{
+        if(data_len==FDCAN_DLC_BYTES_8)
+        {// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -484,7 +476,7 @@ void dm4310_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm4340_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -501,7 +493,7 @@ void dm4340_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm6006_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -518,7 +510,7 @@ void dm6006_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm8006_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -535,7 +527,7 @@ void dm8006_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm3507_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -552,7 +544,7 @@ void dm3507_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm10010l_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -569,7 +561,7 @@ void dm10010l_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 void dm6248p_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 { 
 	if(data_len==FDCAN_DLC_BYTES_8)
-	{//���ص�������8���ֽ�
+	{// Expect the standard 8-byte MIT feedback frame.
 	  motor->para.id = (rx_data[0])&0x0F;
 	  motor->para.state = (rx_data[0])>>4;
 	  motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
@@ -583,7 +575,7 @@ void dm6248p_fbdata(Joint_Motor_t *motor, uint8_t *rx_data,uint32_t data_len)
 	}
 }
 
-//���ǲ�����λ��������Ƭ��������
+// Convert the raw MIT cache words into floating-point values.
 void dm4310_fbdata_test(Joint_Motor_t *motor, uint8_t *rx_data)
 { 
 	motor->para.p_int_test=(rx_data[2]<<8)|rx_data[3];
@@ -734,15 +726,15 @@ void save_motor_zero(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id)
 
 
 /**
-************************************************************************
-* @brief:      	disable_motor_mode: ���õ��ģʽ����
-* @param[in]:   hcan:     ָ��CAN_HandleTypeDef�ṹ��ָ��
-* @param[in]:   motor_id: ���ID��ָ��Ŀ����
-* @param[in]:   mode_id:  ģʽID��ָ��Ҫ���õ�ģʽ
-* @retval:     	void
-* @details:    	ͨ��CAN�������ض�������ͽ����ض�ģʽ������
-************************************************************************
-**/
+ * @brief Disable a motor operating mode.
+ *
+ * The driver sends the standard MIT command frame filled with 0xFF bytes
+ * (apart from the checksum) to instruct the motor to enter an idle state.
+ *
+ * @param hcan     Target CAN bus handle.
+ * @param motor_id Identifier of the motor on the bus.
+ * @param mode_id  Mode selector that should be disabled.
+ */
 void disable_motor_mode(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id)
 {
 	uint8_t data[8];
@@ -761,19 +753,19 @@ void disable_motor_mode(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id)
 }
 
 /**
-************************************************************************
-* @brief:      	mit_ctrl: MITģʽ�µĵ�����ƺ���
-* @param[in]:   hcan:			ָ��CAN_HandleTypeDef�ṹ��ָ�룬����ָ��CAN����
-* @param[in]:   motor_id:	���ID��ָ��Ŀ����
-* @param[in]:   pos:			λ�ø���ֵ
-* @param[in]:   vel:			�ٶȸ���ֵ
-* @param[in]:   kp:				λ�ñ���ϵ��
-* @param[in]:   kd:				λ��΢��ϵ��
-* @param[in]:   torq:			ת�ظ���ֵ
-* @retval:     	void
-* @details:    	ͨ��CAN������������MITģʽ�µĿ���֡��
-************************************************************************
-**/
+ * @brief Send a MIT mode set-point to a motor.
+ *
+ * The command encodes position, velocity, stiffness, damping and torque
+ * into the packed MIT frame used by the DM series actuators.
+ *
+ * @param hcan     Target CAN bus handle.
+ * @param motor_id Identifier of the motor on the bus.
+ * @param pos      Desired joint position in radians.
+ * @param vel      Desired joint velocity in radians per second.
+ * @param kp       Proportional gain.
+ * @param kd       Derivative gain.
+ * @param torq     Desired torque in newton metres.
+ */
 void mit_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel,float kp, float kd, float torq)
 {
 	uint8_t data[8];
@@ -798,47 +790,15 @@ void mit_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel,float kp, fl
 	canx_send_data(hcan, id, data, 8);
 }
 /**
-************************************************************************
-* @brief:      	pos_speed_ctrl: λ���ٶȿ��ƺ���
-* @param[in]:   hcan:			ָ��CAN_HandleTypeDef�ṹ��ָ�룬����ָ��CAN����
-* @param[in]:   motor_id:	���ID��ָ��Ŀ����
-* @param[in]:   vel:			�ٶȸ���ֵ
-* @retval:     	void
-* @details:    	ͨ��CAN������������λ���ٶȿ�������
-************************************************************************
-**/
-void pos_speed_ctrl(hcan_t* hcan,uint16_t motor_id, float pos, float vel)
-{
-	uint16_t id;
-	uint8_t *pbuf, *vbuf;
-	uint8_t data[8];
-	
-	id = motor_id + POS_MODE;
-	pbuf=(uint8_t*)&pos;
-	vbuf=(uint8_t*)&vel;
-	
-	data[0] = *pbuf;
-	data[1] = *(pbuf+1);
-	data[2] = *(pbuf+2);
-	data[3] = *(pbuf+3);
-
-	data[4] = *vbuf;
-	data[5] = *(vbuf+1);
-	data[6] = *(vbuf+2);
-	data[7] = *(vbuf+3);
-	
-	canx_send_data(hcan, id, data, 8);
-}
-/**
-************************************************************************
-* @brief:      	speed_ctrl: �ٶȿ��ƺ���
-* @param[in]:   hcan: 		ָ��CAN_HandleTypeDef�ṹ��ָ�룬����ָ��CAN����
-* @param[in]:   motor_id: ���ID��ָ��Ŀ����
-* @param[in]:   vel: 			�ٶȸ���ֵ
-* @retval:     	void
-* @details:    	ͨ��CAN�������������ٶȿ�������
-************************************************************************
-**/
+ * @brief Send a pure velocity command to the motor.
+ *
+ * The frame sets the target speed while leaving the position-related
+ * registers untouched, which is useful for wheel or continuous joints.
+ *
+ * @param hcan     Target CAN bus handle.
+ * @param motor_id Identifier of the motor on the bus.
+ * @param vel      Desired velocity in radians per second.
+ */
 void speed_ctrl(hcan_t* hcan,uint16_t motor_id, float vel)
 {
 	uint16_t id;
@@ -983,7 +943,7 @@ void mit_ctrl_test(hcan_t* hcan, uint16_t motor_id,Joint_Motor_t *motor)
 	canx_send_data(hcan, id, data, 8);
 }
 
-//һ��ʼ��ʼ������Ȼ��ֵ��Ϊ0
+// Initialise the cached command words to zero so the driver starts from a neutral state.
 void dm4310_fbdata_init(Joint_Motor_t *motor)
 {
   motor->para.p_int_test = float_to_uint(0.0f,  P_MIN1,  P_MAX1,  16);
@@ -1014,29 +974,38 @@ void dm6006_fbdata_init(Joint_Motor_t *motor)
 
 void dm8006_fbdata_init(Joint_Motor_t *motor)
 {
-  motor->para.p_int_test = float_to_uint(0.0f,  P_MIN4,  P_MAX4,  16);
-	motor->para.v_int_test = float_to_uint(0.0f,  V_MIN4,  V_MAX4,  12);
-	motor->para.kp_int_test  = float_to_uint(0.0f,   KP_MIN4, KP_MAX4, 12);
-	motor->para.kd_int_test  = float_to_uint(0.0f,   KD_MIN4, KD_MAX4, 12);
-	motor->para.t_int_test = float_to_uint(0.0f, T_MIN4,  T_MAX4,  12);
+    motor->para.p_int_test = float_to_uint(0.0f, P_MIN4, P_MAX4, 16);
+    motor->para.v_int_test = float_to_uint(0.0f, V_MIN4, V_MAX4, 12);
+    motor->para.kp_int_test = float_to_uint(0.0f, KP_MIN4, KP_MAX4, 12);
+    motor->para.kd_int_test = float_to_uint(0.0f, KD_MIN4, KD_MAX4, 12);
+    motor->para.t_int_test = float_to_uint(0.0f, T_MIN4, T_MAX4, 12);
+}
+
+void dm3507_fbdata_init(Joint_Motor_t *motor)
+{
+    motor->para.p_int_test = float_to_uint(0.0f, P_MIN5, P_MAX5, 16);
+    motor->para.v_int_test = float_to_uint(0.0f, V_MIN5, V_MAX5, 12);
+    motor->para.kp_int_test = float_to_uint(0.0f, KP_MIN5, KP_MAX5, 12);
+    motor->para.kd_int_test = float_to_uint(0.0f, KD_MIN5, KD_MAX5, 12);
+    motor->para.t_int_test = float_to_uint(0.0f, T_MIN5, T_MAX5, 12);
 }
 
 void dm10010l_fbdata_init(Joint_Motor_t *motor)
 {
-  motor->para.p_int_test = float_to_uint(0.0f,  P_MIN6,  P_MAX6,  16);
-	motor->para.v_int_test = float_to_uint(0.0f,  V_MIN6,  V_MAX6,  12);
-	motor->para.kp_int_test  = float_to_uint(0.0f,   KP_MIN6, KP_MAX6, 12);
-	motor->para.kd_int_test  = float_to_uint(0.0f,   KD_MIN6, KD_MAX6, 12);
-	motor->para.t_int_test = float_to_uint(0.0f, T_MIN6,  T_MAX6,  12);
+    motor->para.p_int_test = float_to_uint(0.0f, P_MIN6, P_MAX6, 16);
+    motor->para.v_int_test = float_to_uint(0.0f, V_MIN6, V_MAX6, 12);
+    motor->para.kp_int_test = float_to_uint(0.0f, KP_MIN6, KP_MAX6, 12);
+    motor->para.kd_int_test = float_to_uint(0.0f, KD_MIN6, KD_MAX6, 12);
+    motor->para.t_int_test = float_to_uint(0.0f, T_MIN6, T_MAX6, 12);
 }
 
 void dm6248p_fbdata_init(Joint_Motor_t *motor)
 {
-  motor->para.p_int_test = float_to_uint(0.0f,  P_MIN7,  P_MAX7,  16);
-        motor->para.v_int_test = float_to_uint(0.0f,  V_MIN7,  V_MAX7,  12);
-        motor->para.kp_int_test  = float_to_uint(0.0f,   KP_MIN7, KP_MAX7, 12);
-        motor->para.kd_int_test  = float_to_uint(0.0f,   KD_MIN7, KD_MAX7, 12);
-        motor->para.t_int_test = float_to_uint(0.0f, T_MIN7,  T_MAX7,  12);
+    motor->para.p_int_test = float_to_uint(0.0f, P_MIN7, P_MAX7, 16);
+    motor->para.v_int_test = float_to_uint(0.0f, V_MIN7, V_MAX7, 12);
+    motor->para.kp_int_test = float_to_uint(0.0f, KP_MIN7, KP_MAX7, 12);
+    motor->para.kd_int_test = float_to_uint(0.0f, KD_MIN7, KD_MAX7, 12);
+    motor->para.t_int_test = float_to_uint(0.0f, T_MIN7, T_MAX7, 12);
 }
 
 static void RobotJointManager_EnsureInit(void)
@@ -1349,7 +1318,7 @@ void RobotJointManager_EnableLimb(RobotLimb limb, uint8_t repeat, uint16_t delay
 
 void RobotJointManager_EnableAll(uint8_t repeat, uint16_t delay_ms)
 {
-    for (RobotLimb limb = 0; limb < ROBOT_LIMB_COUNT; limb++)
+    for (RobotLimb limb = ROBOT_LIMB_WAIST; limb < ROBOT_LIMB_COUNT; limb = (RobotLimb)(limb + 1))
     {
         RobotJointManager_EnableLimb(limb, repeat, delay_ms);
     }

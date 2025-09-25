@@ -266,15 +266,15 @@ static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 11 */
-	  if(*Len== RECEIVE_DATA_SIZE) //Verify the length of the packet //��֤���ݰ��ĳ���
+	  if(*Len== RECEIVE_DATA_SIZE) // Verify the expected payload length.
 		{   
 			 // num1++;
 				memcpy(rev_data.rx,Buf,*Len);
 			
-			 if(rev_data.rx[0] == FRAME_HEADER) //Verify the frame tail of the packet //��֤���ݰ���֡β
+			 if(rev_data.rx[0] == FRAME_HEADER) // Check the frame header before processing the payload.
 			 {
 					//Data exclusionary or bit check calculation, mode 0 is sent data check
-					//�������λУ����㣬ģʽ0�Ƿ�������У��
+					// Perform the checksum in mode 0 to validate the received payload.
 					if(rev_data.rx[10] ==Check_Sum(10,rev_data.rx))	 
 				  {	
 						if(rev_data.rx[1]==0)

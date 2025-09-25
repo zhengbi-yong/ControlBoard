@@ -52,6 +52,8 @@ typedef struct
     float current_pos;
 } BodyJointCommand;
 
+static void slope_following(float *target, float *set, float acc);
+
 static BodyJointCommand body_joint_commands[] = {
     {ROBOT_JOINT_WAIST_YAW, 0.0f, 0.0f, 90.0f, 1.1f, 0.0f, 0.001f, 0.0f},
     {ROBOT_JOINT_NECK_YAW, 0.0f, 0.0f, 60.0f, 0.8f, 0.0f, 0.002f, 0.0f},
@@ -162,7 +164,7 @@ void Body_SetJointRamp(RobotJointId joint, float ramp)
  * count helps the CPU keep the pipeline full and lowers the jitter of the
  * control loop.
  */
-void slope_following(float *target, float *set, float acc)
+static void slope_following(float *target, float *set, float acc)
 {
     const float diff = *target - *set;
     const float step = (fabsf(diff) < acc) ? diff : (diff > 0.0f ? acc : -acc);
