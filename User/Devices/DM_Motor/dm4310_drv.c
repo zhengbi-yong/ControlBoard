@@ -14,6 +14,15 @@ typedef struct
     RobotJointConfig config;
 } RobotJointEntry;
 
+#define ROBOT_JOINT_MAX_BUS_COUNT (4U)
+#define ROBOT_JOINT_FEEDBACK_LOOKUP_SIZE (0x200U)
+
+typedef struct
+{
+    hcan_t *bus;
+    RobotJointEntry *feedback_lookup[ROBOT_JOINT_FEEDBACK_LOOKUP_SIZE];
+} RobotJointBusCache;
+
 static RobotJointHardwareConfig g_joint_hw_table[ROBOT_JOINT_COUNT] = {
     [ROBOT_JOINT_WAIST_YAW] = {
         .joint_id = ROBOT_JOINT_WAIST_YAW,
@@ -278,6 +287,8 @@ static RobotJointHardwareConfig g_joint_hw_table[ROBOT_JOINT_COUNT] = {
 };
 
 static RobotJointEntry g_joint_entries[ROBOT_JOINT_COUNT];
+static RobotJointBusCache g_joint_bus_cache[ROBOT_JOINT_MAX_BUS_COUNT];
+static uint32_t g_joint_bus_cache_count = 0U;
 static bool g_joint_initialized = false;
 
 float Hex_To_Float(uint32_t *Byte,int num)//ʮ�����Ƶ�������
@@ -303,10 +314,112 @@ uint32_t FloatTohex(float HEX)//��������ʮ������ת�
 **/
 int float_to_uint(float x_float, float x_min, float x_max, int bits)
 {
-	/* Converts a float to an unsigned int, given range and number of bits */
-	float span = x_max - x_min;
-	float offset = x_min;
-	return (int) ((x_float-offset)*((float)((1<<bits)-1))/span);
+        /* Converts a float to an unsigned int, given range and number of bits */
+        float span = x_max - x_min;
+        float offset = x_min;
+        return (int) ((x_float-offset)*((float)((1<<bits)-1))/span);
+}
+
+static void RobotJointManager_ClearBusCache(void)
+{
+    for (uint32_t i = 0; i < ROBOT_JOINT_MAX_BUS_COUNT; i++)
+    {
+        g_joint_bus_cache[i].bus = NULL;
+        memset(g_joint_bus_cache[i].feedback_lookup, 0, sizeof(g_joint_bus_cache[i].feedback_lookup));
+    }
+    g_joint_bus_cache_count = 0U;
+}
+
+static RobotJointBusCache *RobotJointManager_FindBusCache(hcan_t *bus)
+{
+    if (bus == NULL)
+    {
+        return NULL;
+    }
+
+    for (uint32_t i = 0; i < g_joint_bus_cache_count; i++)
+    {
+        if (g_joint_bus_cache[i].bus == bus)
+        {
+            return &g_joint_bus_cache[i];
+        }
+    }
+
+    return NULL;
+}
+
+static RobotJointBusCache *RobotJointManager_GetOrCreateBusCache(hcan_t *bus)
+{
+    if (bus == NULL)
+    {
+        return NULL;
+    }
+
+    RobotJointBusCache *cache = RobotJointManager_FindBusCache(bus);
+    if (cache != NULL)
+    {
+        return cache;
+    }
+
+    if (g_joint_bus_cache_count >= ROBOT_JOINT_MAX_BUS_COUNT)
+    {
+        return NULL;
+    }
+
+    cache = &g_joint_bus_cache[g_joint_bus_cache_count++];
+    cache->bus = bus;
+    memset(cache->feedback_lookup, 0, sizeof(cache->feedback_lookup));
+    return cache;
+}
+
+static void RobotJointManager_RemoveEntryFromBusCache(RobotJointEntry *entry)
+{
+    if (entry == NULL || entry->config.bus == NULL)
+    {
+        return;
+    }
+
+    RobotJointBusCache *cache = RobotJointManager_FindBusCache(entry->config.bus);
+    if (cache == NULL)
+    {
+        return;
+    }
+
+    if (entry->config.feedback_id < ROBOT_JOINT_FEEDBACK_LOOKUP_SIZE &&
+        cache->feedback_lookup[entry->config.feedback_id] == entry)
+    {
+        cache->feedback_lookup[entry->config.feedback_id] = NULL;
+    }
+}
+
+static void RobotJointManager_AddEntryToBusCache(RobotJointEntry *entry)
+{
+    if (entry == NULL || entry->config.bus == NULL)
+    {
+        return;
+    }
+
+    RobotJointBusCache *cache = RobotJointManager_GetOrCreateBusCache(entry->config.bus);
+    if (cache == NULL)
+    {
+        return;
+    }
+
+    if (entry->config.feedback_id < ROBOT_JOINT_FEEDBACK_LOOKUP_SIZE)
+    {
+        cache->feedback_lookup[entry->config.feedback_id] = entry;
+    }
+}
+
+static RobotJointEntry *RobotJointManager_LookupEntry(hcan_t *bus, uint16_t feedback_id)
+{
+    RobotJointBusCache *cache = RobotJointManager_FindBusCache(bus);
+    if (cache == NULL || feedback_id >= ROBOT_JOINT_FEEDBACK_LOOKUP_SIZE)
+    {
+        return NULL;
+    }
+
+    return cache->feedback_lookup[feedback_id];
 }
 /**
 ************************************************************************
@@ -931,6 +1044,7 @@ static void RobotJointManager_EnsureInit(void)
     if (!g_joint_initialized)
     {
         memset(g_joint_entries, 0, sizeof(g_joint_entries));
+        RobotJointManager_ClearBusCache();
         g_joint_initialized = true;
     }
 }
@@ -1063,6 +1177,7 @@ static void RobotJointManager_SendMitInternal(const RobotJointConfig *config, fl
 void RobotJointManager_Reset(void)
 {
     memset(g_joint_entries, 0, sizeof(g_joint_entries));
+    RobotJointManager_ClearBusCache();
     g_joint_initialized = true;
 }
 
@@ -1077,6 +1192,10 @@ bool RobotJointManager_Register(const RobotJointConfig *config)
     RobotJointManager_EnsureInit();
 
     RobotJointEntry *entry = &g_joint_entries[config->joint_id];
+    if (entry->registered)
+    {
+        RobotJointManager_RemoveEntryFromBusCache(entry);
+    }
     entry->config = *config;
 
     if (entry->config.mode == 0U)
@@ -1101,6 +1220,7 @@ bool RobotJointManager_Register(const RobotJointConfig *config)
     joint_motor_init(entry->config.joint, entry->config.command_id, entry->config.mode);
     RobotJointManager_InitFeedbackCache(&entry->config);
 
+    RobotJointManager_AddEntryToBusCache(entry);
     entry->registered = true;
     return true;
 }
@@ -1243,12 +1363,20 @@ void RobotJointManager_HandleFeedback(hcan_t *bus, uint16_t feedback_id, uint8_t
         return;
     }
 
+    RobotJointEntry *entry = RobotJointManager_LookupEntry(bus, feedback_id);
+    if (entry != NULL && entry->registered)
+    {
+        RobotJointManager_HandleFeedbackForEntry(&entry->config, data, len);
+        return;
+    }
+
     for (uint32_t i = 0; i < ROBOT_JOINT_COUNT; i++)
     {
-        RobotJointEntry *entry = &g_joint_entries[i];
-        if (entry->registered && entry->config.bus == bus && entry->config.feedback_id == feedback_id)
+        RobotJointEntry *candidate = &g_joint_entries[i];
+        if (candidate->registered && candidate->config.bus == bus && candidate->config.feedback_id == feedback_id)
         {
-            RobotJointManager_HandleFeedbackForEntry(&entry->config, data, len);
+            RobotJointManager_HandleFeedbackForEntry(&candidate->config, data, len);
+            RobotJointManager_AddEntryToBusCache(candidate);
             break;
         }
     }
